@@ -21,12 +21,12 @@ CREATE TABLE IF NOT EXISTS profilePreferences (
 );
 
 CREATE TABLE IF NOT EXISTS animeCatalog (
-    animeId VARCHAR(32) PRIMARY KEY,
-    coreRecord JSONB NOT NULL, -- title, alternativeTitle, type, year, episodes, malUrl, sequel, imageUrl
-    aboutMe JSONB, -- genres, genresDetailed
-    popularity JSONB, -- averageRating
+    animeId UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    coreRecord JSONB NOT NULL, -- title, synopsis, episodes, air_date, etc.
+    aboutMe JSONB, -- genres, studios, themes, demographics
+    popularity JSONB,
     status VARCHAR(20) DEFAULT 'active',
-    dataFingerprint VARCHAR(64) UNIQUE,
+    dataFingerprint CHAR(64) UNIQUE,
     updateTime TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 
@@ -111,13 +111,4 @@ CREATE TABLE IF NOT EXISTS importJobs (
     payload JSONB NOT NULL,
     startedAt TIMESTAMP WITH TIME ZONE DEFAULT now(),
     completedAt TIMESTAMP WITH TIME ZONE
-);
-
-CREATE TABLE IF NOT EXISTS animeImportMap (
-    importId UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    animeId VARCHAR(32) NOT NULL,
-    importJobId VARCHAR(32),
-    importTime TIMESTAMP WITH TIME ZONE DEFAULT now(),
-    importSource VARCHAR(255),
-    UNIQUE(animeId, importJobId)
 );
