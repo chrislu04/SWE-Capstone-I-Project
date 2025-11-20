@@ -11,6 +11,14 @@ from psycopg2.extras import RealDictCursor
 from kafka import KafkaProducer, KafkaConsumer
 import threading
 
+# Kafka integration (optional)
+try:
+    from kafka import KafkaProducer, KafkaConsumer
+    KAFKA_AVAILABLE = True
+except ImportError:
+    KAFKA_AVAILABLE = False
+    print("⚠ Kafka not available - event streaming disabled")
+
 app = Flask(__name__)
 app.secret_key = 'aniflow_secret_key_123'
 
@@ -75,6 +83,8 @@ class KafkaManager:
         self.producer = None
     
     def get_producer(self):
+        if not KAFKA_AVAILABLE:
+            return None
         if not self.producer:
             try:
                 self.producer = KafkaProducer(
