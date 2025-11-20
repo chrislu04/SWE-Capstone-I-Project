@@ -1,4 +1,4 @@
-# app.py - MINIMAL WITH KAFKA, FLASK & HTML TEMPLATES
+# app.py
 from flask import Flask, request, jsonify, session, render_template, redirect
 from werkzeug.security import generate_password_hash, check_password_hash
 import uuid
@@ -14,7 +14,7 @@ import threading
 app = Flask(__name__)
 app.secret_key = 'aniflow_secret_key_123'
 
-# ===== DATABASE =====
+# database
 SUPABASE_DB_URL = 'postgresql://postgres.tjrbxmwippcvwpkclxwd:animeftw@aws-1-us-east-2.pooler.supabase.com:5432/postgres'
 
 def get_db_connection():
@@ -133,7 +133,7 @@ def start_recommendation_consumer():
     thread = threading.Thread(target=consume_events, daemon=True)
     thread.start()
 
-# ===== Routing =====
+# routing
 
 @app.route('/')
 def welcome():
@@ -281,7 +281,7 @@ def logout():
     session.clear()
     return redirect('/')
 
-# ===== START SERVICES =====
+# start
 print("Starting AniFlow")
 start_recommendation_consumer()
 
