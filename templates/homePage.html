@@ -3,40 +3,292 @@
 <head>
     <title>AniFlow - Home</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f5f5f5; }
-        .header { background: white; padding: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
-        .welcome { background: white; padding: 30px; border-radius: 10px; margin-bottom: 30px; }
-        .section { background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; }
-        .anime-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; }
-        .anime-card { border: 1px solid #ddd; border-radius: 5px; padding: 15px; text-align: center; }
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 0; 
+            padding: 0; 
+            background: #f5f5f5; 
+            color: #333;
+        }
+        .header { 
+            background: white; 
+            padding: 15px 0; 
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1); 
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo { 
+            font-size: 24px; 
+            font-weight: bold; 
+            color: #007bff;
+            text-decoration: none;
+        }
+        .nav-links a {
+            margin-left: 20px;
+            text-decoration: none;
+            color: #333;
+        }
+        .nav-links a:hover {
+            color: #007bff;
+        }
+        .container { 
+            max-width: 1200px; 
+            margin: 0 auto; 
+            padding: 20px; 
+        }
+        .welcome { 
+            background: white; 
+            padding: 30px; 
+            border-radius: 10px; 
+            margin-bottom: 30px; 
+            text-align: center;
+        }
+        .section { 
+            background: white; 
+            padding: 25px; 
+            border-radius: 10px; 
+            margin-bottom: 30px; 
+        }
+        .section-title {
+            font-size: 24px;
+            margin-bottom: 20px;
+            color: #333;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+        }
+        .anime-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 20px;
+            margin-bottom: 10px;
+        }
+        .anime-card { 
+            border: 1px solid #e0e0e0; 
+            border-radius: 8px; 
+            padding: 15px; 
+            text-align: center;
+            background: white;
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+        }
+        .anime-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        .anime-title {
+            font-size: 16px;
+            font-weight: bold;
+            margin: 10px 0;
+            color: #333;
+        }
+        .anime-synopsis {
+            font-size: 14px;
+            color: #666;
+            line-height: 1.4;
+            margin-bottom: 10px;
+        }
+        .anime-meta {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #888;
+            margin-top: 10px;
+        }
+        .rating {
+            color: #ffa500;
+            font-weight: bold;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        .empty-state p {
+            margin-bottom: 20px;
+        }
+        .btn {
+            background: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .btn:hover {
+            background: #0056b3;
+        }
+        .genre-tag {
+            display: inline-block;
+            background: #e9ecef;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            margin: 2px;
+            color: #495057;
+        }
     </style>
 </head>
 <body>
     <div class="header">
-        <div class="container">
-            <h1>AniFlow 🎌</h1>
-            <a href="/logout">Logout</a>
+        <div class="header-content">
+            <a href="/home" class="logo">🎌 AniFlow</a>
+            <div class="nav-links">
+                <a href="/home">Home</a>
+                <a href="/profile">Profile</a>
+                <a href="/watchlist">Watchlist</a>
+                <a href="/logout">Logout</a>
+            </div>
         </div>
     </div>
     
     <div class="container">
+        <!-- Welcome Section -->
         <div class="welcome">
-            <h2>Welcome to Your Anime Dashboard!</h2>
-            <p>Your personalized recommendations are ready.</p>
+            <h2>Welcome to Your Anime Dashboard! 🎉</h2>
+            <p>Discover your next favorite anime with personalized recommendations</p>
         </div>
-        
+
+        <!-- Personalized Recommendations Section -->
         <div class="section">
-            <h3>Recommended For You</h3>
-            <div class="anime-grid">
-                {% for anime in feed.sample_anime %}
-                <div class="anime-card">
-                    <h4>{{ anime.title }}</h4>
-                    <p>{{ anime.synopsis[:100] }}...</p>
+            <h2 class="section-title">🎯 Personalized For You</h2>
+            {% if feed.personalized_recommendations and feed.personalized_recommendations.recommended_anime %}
+            <div class="anime-row">
+                {% for anime in feed.personalized_recommendations.recommended_anime %}
+                <div class="anime-card" onclick="rateAnime('{{ anime.animeid }}')">
+                    <div style="height: 200px; background: #f8f9fa; border-radius: 5px; display: flex; align-items: center; justify-content: center; margin-bottom: 10px;">
+                        <span style="color: #999; font-size: 14px;">Anime Art</span>
+                    </div>
+                    <div class="anime-title">{{ anime.title or "Recommended Anime" }}</div>
+                    <div class="anime-synopsis">
+                        {{ anime.synopsis[:80] + '...' if anime.synopsis else "Based on your preferences and ratings" }}
+                    </div>
+                    <div class="anime-meta">
+                        <span class="rating">★ 8.5</span>
+                        <span>2023</span>
+                    </div>
+                    <div style="margin-top: 10px;">
+                        <span class="genre-tag">Action</span>
+                        <span class="genre-tag">Adventure</span>
+                    </div>
                 </div>
                 {% endfor %}
             </div>
+            {% else %}
+            <div class="empty-state">
+                <p>🎭 No personalized recommendations yet</p>
+                <p>Rate some anime to get personalized suggestions!</p>
+                <a href="/browse" class="btn">Browse Anime</a>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Explore Random Anime Section -->
+        <div class="section">
+            <h2 class="section-title">🔍 Explore Anime</h2>
+            {% if feed.sample_anime %}
+            <div class="anime-row">
+                {% for anime in feed.sample_anime %}
+                <div class="anime-card" onclick="viewAnime('{{ anime.animeid }}')">
+                    <div style="height: 200px; background: #e3f2fd; border-radius: 5px; display: flex; align-items: center; justify-content: center; margin-bottom: 10px;">
+                        <span style="color: #1976d2; font-size: 14px;">Anime Art</span>
+                    </div>
+                    <div class="anime-title">{{ anime.title or "Anime Title" }}</div>
+                    <div class="anime-synopsis">
+                        {{ anime.synopsis[:80] + '...' if anime.synopsis else "Discover this amazing anime series" }}
+                    </div>
+                    <div class="anime-meta">
+                        <span class="rating">★ {{ "%.1f"|format(anime.popularity_score or 8.0) }}</span>
+                        <span>{{ anime.release_year or "2023" }}</span>
+                    </div>
+                    <div style="margin-top: 10px;">
+                        <span class="genre-tag">Fantasy</span>
+                        <span class="genre-tag">Drama</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <p>📺 No anime available to explore</p>
+                <p>Check back later for new additions!</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Recently Rated Section -->
+        <div class="section">
+            <h2 class="section-title">⭐ Your Recent Ratings</h2>
+            {% if feed.recent_ratings %}
+            <div class="anime-row">
+                {% for rating in feed.recent_ratings %}
+                <div class="anime-card">
+                    <div style="height: 200px; background: #f3e5f5; border-radius: 5px; display: flex; align-items: center; justify-content: center; margin-bottom: 10px;">
+                        <span style="color: #7b1fa2; font-size: 14px;">Your Rating</span>
+                    </div>
+                    <div class="anime-title">{{ rating.title or "Rated Anime" }}</div>
+                    <div class="anime-synopsis">
+                        You rated this: <strong>{{ rating.score }}/10</strong>
+                    </div>
+                    <div class="anime-meta">
+                        <span style="color: #ffa500; font-weight: bold;">Your Score: {{ rating.score }}/10</span>
+                    </div>
+                    <button class="btn" style="width: 100%; margin-top: 10px; padding: 8px;" onclick="editRating('{{ rating.animeid }}')">
+                        Edit Rating
+                    </button>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <p>🌟 You haven't rated any anime yet</p>
+                <p>Start rating to improve your recommendations!</p>
+                <a href="/browse" class="btn">Rate Anime</a>
+            </div>
+            {% endif %}
         </div>
     </div>
+
+    <script>
+        function viewAnime(animeId) {
+            alert('Viewing anime: ' + animeId);
+            // In real implementation: window.location.href = '/anime/' + animeId;
+        }
+
+        function rateAnime(animeId) {
+            const score = prompt('Rate this anime (1-10):');
+            if (score && score >= 1 && score <= 10) {
+                // In real implementation: Send rating to backend
+                fetch('/api/ratings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ anime_id: animeId, score: parseInt(score) })
+                }).then(response => {
+                    if (response.ok) {
+                        alert('Rating submitted!');
+                        location.reload();
+                    }
+                });
+            }
+        }
+
+        function editRating(animeId) {
+            const newScore = prompt('Edit your rating (1-10):');
+            if (newScore && newScore >= 1 && newScore <= 10) {
+                // In real implementation: Update rating
+                alert('Rating updated to: ' + newScore);
+            }
+        }
+    </script>
 </body>
 </html>

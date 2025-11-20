@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AniFlow - User Profile</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 0; 
+            padding: 0; 
+            background: #f5f5f5; 
+            color: #333;
+        }
+        .header { 
+            background: white; 
+            padding: 15px 0; 
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1); 
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo { 
+            font-size: 24px; 
+            font-weight: bold; 
+            color: #007bff;
+            text-decoration: none;
+        }
+        .nav-links a {
+            margin-left: 20px;
+            text-decoration: none;
+            color: #333;
+        }
+        .nav-links a:hover {
+            color: #007bff;
+        }
+        .container { 
+            max-width: 800px; 
+            margin: 0 auto; 
+            padding: 20px; 
+        }
+        .profile-header {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .profile-avatar {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #007bff, #0056b3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            color: white;
+            font-size: 36px;
+        }
+        .profile-name {
+            font-size: 28px;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        .profile-email {
+            color: #666;
+            font-size: 16px;
+            margin-bottom: 20px;
+        }
+        .section { 
+            background: white; 
+            padding: 25px; 
+            border-radius: 10px; 
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .section-title {
+            font-size: 20px;
+            margin-bottom: 20px;
+            color: #333;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        .info-label {
+            font-weight: bold;
+            color: #555;
+        }
+        .info-value {
+            color: #333;
+        }
+        .password-field {
+            background: #f8f9fa;
+            padding: 8px 12px;
+            border-radius: 5px;
+            border: 1px solid #e0e0e0;
+            font-family: monospace;
+            letter-spacing: 2px;
+        }
+        .preferences-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+        .preference-category {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #007bff;
+        }
+        .category-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        .tag-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .tag {
+            background: #007bff;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: 12px;
+            display: inline-block;
+        }
+        .tag-empty {
+            background: #6c757d;
+        }
+        .btn {
+            background: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 14px;
+        }
+        .btn:hover {
+            background: #0056b3;
+        }
+        .btn-edit {
+            background: #28a745;
+        }
+        .btn-edit:hover {
+            background: #218838;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+            background: #f8f9fa;
+            border-radius: 5px;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .stat-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007bff;
+            margin-bottom: 5px;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <a href="/home" class="logo">🎌 AniFlow</a>
+            <div class="nav-links">
+                <a href="/home">Home</a>
+                <a href="/profile" style="color: #007bff; font-weight: bold;">Profile</a>
+                <a href="/watchlist">Watchlist</a>
+                <a href="/logout">Logout</a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="container">
+        <!-- Profile Header -->
+        <div class="profile-header">
+            <div class="profile-avatar">
+                {{ user.username[0]|upper if user.username else 'U' }}
+            </div>
+            <h1 class="profile-name">{{ user.username or "User" }}</h1>
+            <div class="profile-email">{{ user.email or "No email provided" }}</div>
+            <a href="/edit-profile" class="btn btn-edit">✏️ Edit Profile</a>
+        </div>
+
+        <!-- Account Information -->
+        <div class="section">
+            <h2 class="section-title">
+                📝 Account Information
+                <a href="/edit-account" class="btn" style="font-size: 12px; padding: 8px 15px;">Edit</a>
+            </h2>
+            <div class="info-grid">
+                <div class="info-label">Username:</div>
+                <div class="info-value">{{ user.username or "Not set" }}</div>
+                
+                <div class="info-label">Email:</div>
+                <div class="info-value">{{ user.email or "Not set" }}</div>
+                
+                <div class="info-label">Password:</div>
+                <div class="info-value">
+                    <span class="password-field">••••••••</span>
+                    <a href="/change-password" style="margin-left: 10px; font-size: 12px; color: #007bff;">Change</a>
+                </div>
+                
+                <div class="info-label">Account Created:</div>
+                <div class="info-value">{{ user.created_time or "Unknown" }}</div>
+                
+                <div class="info-label">Status:</div>
+                <div class="info-value">
+                    <span style="color: #28a745;">● Active</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Demographic Information -->
+        <div class="section">
+            <h2 class="section-title">
+                👤 Demographic Information
+                <a href="/edit-demographic" class="btn" style="font-size: 12px; padding: 8px 15px;">Edit</a>
+            </h2>
+            {% if user.demographic %}
+            <div class="info-grid">
+                {% if user.demographic.age %}
+                <div class="info-label">Age:</div>
+                <div class="info-value">{{ user.demographic.age }} years old</div>
+                {% endif %}
+                
+                {% if user.demographic.region %}
+                <div class="info-label">Region:</div>
+                <div class="info-value">{{ user.demographic.region }}</div>
+                {% endif %}
+                
+                {% if user.demographic.bio %}
+                <div class="info-label">Bio:</div>
+                <div class="info-value" style="grid-column: 2; line-height: 1.5;">{{ user.demographic.bio }}</div>
+                {% endif %}
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <p>No demographic information provided</p>
+                <a href="/edit-demographic" class="btn">Add Demographic Info</a>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Preferences Section -->
+        <div class="section">
+            <h2 class="section-title">
+                ⚙️ Profile Preferences
+                <a href="/edit-preferences" class="btn" style="font-size: 12px; padding: 8px 15px;">Edit</a>
+            </h2>
+            
+            <div class="preferences-grid">
+                <!-- Preferred Genres -->
+                <div class="preference-category">
+                    <div class="category-title">🎭 Preferred Genres</div>
+                    <div class="tag-list">
+                        {% if user.preferred_genres and user.preferred_genres|length > 0 %}
+                            {% for genre in user.preferred_genres %}
+                                <span class="tag">{{ genre }}</span>
+                            {% endfor %}
+                        {% else %}
+                            <span class="tag tag-empty">No genres selected</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Preferred Studios -->
+                <div class="preference-category">
+                    <div class="category-title">🎬 Preferred Studios</div>
+                    <div class="tag-list">
+                        {% if user.preferred_studios and user.preferred_studios|length > 0 %}
+                            {% for studio in user.preferred_studios %}
+                                <span class="tag">{{ studio }}</span>
+                            {% endfor %}
+                        {% else %}
+                            <span class="tag tag-empty">No studios selected</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Preferred Themes -->
+                <div class="preference-category">
+                    <div class="category-title">🎨 Preferred Themes</div>
+                    <div class="tag-list">
+                        {% if user.preferred_themes and user.preferred_themes|length > 0 %}
+                            {% for theme in user.preferred_themes %}
+                                <span class="tag">{{ theme }}</span>
+                            {% endfor %}
+                        {% else %}
+                            <span class="tag tag-empty">No themes selected</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- User Statistics -->
+        <div class="section">
+            <h2 class="section-title">📊 Your Anime Stats</h2>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-number">{{ user.stats.anime_rated or 0 }}</div>
+                    <div class="stat-label">Anime Rated</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">{{ user.stats.avg_rating or "0.0" }}</div>
+                    <div class="stat-label">Avg Rating</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">{{ user.stats.watchlist_count or 0 }}</div>
+                    <div class="stat-label">In Watchlist</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">{{ user.stats.reviews_written or 0 }}</div>
+                    <div class="stat-label">Reviews</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Account Actions -->
+        <div class="section">
+            <h2 class="section-title">🔧 Account Actions</h2>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <a href="/export-data" class="btn" style="background: #6c757d;">📤 Export Data</a>
+                <a href="/privacy-settings" class="btn" style="background: #17a2b8;">🔒 Privacy Settings</a>
+                <a href="/delete-account" class="btn" style="background: #dc3545;">🗑️ Delete Account</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Simple interactivity
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add click effects to buttons
+            const buttons = document.querySelectorAll('.btn');
+            buttons.forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    if (this.getAttribute('href') === '/delete-account') {
+                        if (!confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
+                            e.preventDefault();
+                        }
+                    }
+                });
+            });
+
+            // Show password on hover (for demo purposes)
+            const passwordField = document.querySelector('.password-field');
+            let originalPassword = null;
+            
+            passwordField.addEventListener('mouseenter', function() {
+                if (!originalPassword) {
+                    originalPassword = this.textContent;
+                    this.textContent = 'animeftw'; // This would come from your backend in real app
+                }
+            });
+            
+            passwordField.addEventListener('mouseleave', function() {
+                if (originalPassword) {
+                    this.textContent = originalPassword;
+                }
+            });
+        });
+    </script>
+</body>
+</html>
