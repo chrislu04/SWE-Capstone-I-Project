@@ -1,6 +1,6 @@
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.dialects.postgresql import UUID, JSONB
-from sqlalchemy import CheckConstraint, UniqueConstraint, ForeignKey
+from sqlalchemy import CheckConstraint, UniqueConstraint
 import uuid
 
 # Initialize SQLAlchemy (app must call db.init_app(app))
@@ -21,7 +21,7 @@ class User(db.Model):
 
 class ProfilePreference(db.Model):
     __tablename__ = 'profilePreferences'
-    userId = db.Column(UUID(as_uuid=True), db.ForeignKey('users.userId'), primary_key=True)
+    userId = db.Column(UUID(as_uuid=True), primary_key=True)
     demographic = db.Column(JSONB)
     preferredGenres = db.Column(JSONB)
     preferredStudios = db.Column(JSONB)
@@ -33,12 +33,38 @@ class ProfilePreference(db.Model):
 class Anime(db.Model):
     __tablename__ = 'animeCatalog'
     animeId = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    coreRecord = db.Column(JSONB, nullable=False)
-    aboutMe = db.Column(JSONB)
-    popularity = db.Column(JSONB)
+    title = db.Column(db.String(255), nullable=False, index=True)
+    alternativeTitle = db.Column(db.String(255))
+    type = db.Column(db.String(50))  # MOVIE, TV, OVA, etc.
+    releaseYear = db.Column(db.Integer)
+    episodes = db.Column(db.Integer)
+    malUrl = db.Column(db.Text)
+    sequel = db.Column(db.Boolean, default=False)
+    imageUrl = db.Column(db.Text)
+    averageRating = db.Column(db.Float)
     status = db.Column(db.String(20), default='active')
-    dataFingerprint = db.Column(db.String(64), unique=True)
     updateTime = db.Column(db.DateTime(timezone=True), server_default=db.func.now())
+    __table_args__ = (
+        UniqueConstraint('title', 'releaseYear', name='uq_anime_title_year'),
+    )
+
+class AnimeGenre(db.Model):
+    __tablename__ = 'animeGenres'
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    animeId = db.Column(UUID(as_uuid=True), db.ForeignKey('animeCatalog.animeId', ondelete='CASCADE'), nullable=False, index=True)
+    genre = db.Column(db.String(100), nullable=False, index=True)
+    __table_args__ = (
+        UniqueConstraint('animeId', 'genre', name='uq_anime_genre'),
+    )
+
+class AnimeGenreDetailed(db.Model):
+    __tablename__ = 'animeGenresDetailed'
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    animeId = db.Column(UUID(as_uuid=True), db.ForeignKey('animeCatalog.animeId', ondelete='CASCADE'), nullable=False, index=True)
+    genreDetail = db.Column(db.String(100), nullable=False, index=True)
+    __table_args__ = (
+        UniqueConstraint('animeId', 'genreDetail', name='uq_anime_genre_detail'),
+    )
 
 class Rating(db.Model):
     __tablename__ = 'ratingSnapshots'
@@ -64,10 +90,10 @@ class RatingHistory(db.Model):
 class Watchlist(db.Model):
     __tablename__ = 'watchlistDocuments'
     watchlistId = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    userId = db.Column(UUID(as_uuid=True), db.ForeignKey('users.userId'), nullable=False)
+    userId = db.Column(UUID(as_uuid=True), nullable=False)
     name = db.Column(db.String(100), nullable=False)
     items = db.Column(JSONB, nullable=False)
-    metadata = db.Column(JSONB)
+    watchlistMetadata = db.Column(JSONB)
     createTime = db.Column(db.DateTime(timezone=True), server_default=db.func.now())
     updateTime = db.Column(db.DateTime(timezone=True), server_default=db.func.now())
 
