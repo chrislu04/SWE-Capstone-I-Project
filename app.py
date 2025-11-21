@@ -68,6 +68,9 @@ def execute_query_one(query, params=None):
     finally:
         conn.close()
 
+#importing services 
+from Services.exploreService import explore_service
+
 # Kafka ==========
 class KafkaManager:
     def __init__(self):
@@ -194,22 +197,34 @@ def home_feed():
     if 'user_id' not in session:
         return redirect('/login')
     
-    # Get some sample anime to display
+    user_id = session['user_id']
+
+    # we would move this to a service later and call it here
+    # Get sample anime for personalized section
     sample_anime = execute_query("""
         SELECT animeid, corerecord->>'title' as title 
         FROM animecatalog 
         LIMIT 6
     """, fetch=True) or []
     
-    # Create minimal feed structure
+    #first example of calling service for query
+    # Get random anime for explore section using the service
+    explore_anime = explore_service.get_random_anime_sync(limit=12)
+    
+    # Send async Kafka event for explore (optional - for background processing)
+    explore_service.send_explore_request(user_id)
+    
+    # Create feed structure
     feed_data = {
         'personalized_recommendations': {'recommended_anime': []},
         'recent_ratings': [],
         'sample_anime': sample_anime,
+        'explore_anime': explore_anime,  # Add explore anime to feed
         'user_preferences': {}
     }
     
     return render_template('homePage.html', feed=feed_data)
+
 
 
 
@@ -284,6 +299,8 @@ def logout():
 # start
 print("Starting AniFlow")
 start_recommendation_consumer()
+#consumer for home page explorer
+explore_service.start_explore_consumer()
 
 if __name__ == '__main__':
     print("Flask running on http://localhost:5000")

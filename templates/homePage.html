@@ -193,38 +193,43 @@
             {% endif %}
         </div>
 
-        <!-- Explore Random Anime Section -->
-        <div class="section">
-            <h2 class="section-title">🔍 Explore Anime</h2>
-            {% if feed.sample_anime %}
-            <div class="anime-row">
-                {% for anime in feed.sample_anime %}
-                <div class="anime-card" onclick="viewAnime('{{ anime.animeid }}')">
-                    <div style="height: 200px; background: #e3f2fd; border-radius: 5px; display: flex; align-items: center; justify-content: center; margin-bottom: 10px;">
-                        <span style="color: #1976d2; font-size: 14px;">Anime Art</span>
-                    </div>
-                    <div class="anime-title">{{ anime.title or "Anime Title" }}</div>
-                    <div class="anime-synopsis">
-                        {{ anime.synopsis[:80] + '...' if anime.synopsis else "Discover this amazing anime series" }}
-                    </div>
-                    <div class="anime-meta">
-                        <span class="rating">★ {{ "%.1f"|format(anime.popularity_score or 8.0) }}</span>
-                        <span>{{ anime.release_year or "2023" }}</span>
-                    </div>
-                    <div style="margin-top: 10px;">
-                        <span class="genre-tag">Fantasy</span>
-                        <span class="genre-tag">Drama</span>
-                    </div>
-                </div>
-                {% endfor %}
+<!-- Explore Random Anime Section -->
+<div class="section">
+    <h2 class="section-title">🔍 Explore Random Anime</h2>
+    {% if feed.explore_anime %}
+    <div class="anime-row">
+        {% for anime in feed.explore_anime %}
+        <div class="anime-card" onclick="viewAnime('{{ anime.animeid }}')">
+            <div style="height: 200px; background: #e3f2fd; border-radius: 5px; display: flex; align-items: center; justify-content: center; margin-bottom: 10px;">
+                <span style="color: #1976d2; font-size: 14px;">Anime Art</span>
             </div>
-            {% else %}
-            <div class="empty-state">
-                <p>📺 No anime available to explore</p>
-                <p>Check back later for new additions!</p>
+            <div class="anime-title">{{ anime.title or "Anime Title" }}</div>
+            <div class="anime-synopsis">
+                {{ anime.synopsis[:80] + '...' if anime.synopsis else "Discover this amazing anime" }}
             </div>
-            {% endif %}
+            <div class="anime-meta">
+                <span class="rating">★ {{ "%.1f"|format(anime.popularity_score or 8.0) }}</span>
+                <span>{{ anime.release_year or "2023" }}</span>
+            </div>
+            <div style="margin-top: 10px;">
+                {% if anime.genres %}
+                    {% for genre in anime.genres[:2] %}
+                    <span class="genre-tag">{{ genre }}</span>
+                    {% endfor %}
+                {% else %}
+                    <span class="genre-tag">Anime</span>
+                {% endif %}
+            </div>
         </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <p>📺 No anime available to explore</p>
+        <p>Check back later for new additions!</p>
+    </div>
+    {% endif %}
+</div>
 
         <!-- Recently Rated Section -->
         <div class="section">
