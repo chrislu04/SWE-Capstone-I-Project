@@ -24,7 +24,7 @@ CREATE TABLE "users" (
 );
 
 CREATE TABLE "profilePreferences" (
-    "userId" UUID PRIMARY KEY REFERENCES "users"("userId") ON DELETE CASCADE,
+    "userId" UUID PRIMARY KEY,
     "demographic" JSONB,
     "preferredGenres" JSONB,
     "preferredStudios" JSONB,
@@ -52,22 +52,22 @@ CREATE TABLE "animeCatalog" (
 
 CREATE TABLE "animeGenres" (
     "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    "animeId" UUID NOT NULL REFERENCES "animeCatalog"("animeId") ON DELETE CASCADE,
+    "animeId" UUID NOT NULL,
     "genre" VARCHAR(100) NOT NULL,
     UNIQUE("animeId", "genre")
 );
 
 CREATE TABLE "animeGenresDetailed" (
     "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    "animeId" UUID NOT NULL REFERENCES "animeCatalog"("animeId") ON DELETE CASCADE,
+    "animeId" UUID NOT NULL,
     "genreDetail" VARCHAR(100) NOT NULL,
     UNIQUE("animeId", "genreDetail")
 );
 
 CREATE TABLE "ratingSnapshots" (
     "ratingId" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    "userId" UUID NOT NULL REFERENCES "users"("userId") ON DELETE CASCADE,
-    "animeId" UUID NOT NULL REFERENCES "animeCatalog"("animeId") ON DELETE CASCADE,
+    "userId" UUID NOT NULL,
+    "animeId" UUID NOT NULL,
     "score" SMALLINT NOT NULL CHECK ("score" >= 0 AND "score" <= 10),
     "ratingMeta" JSONB,
     "reviewText" TEXT,
@@ -77,14 +77,16 @@ CREATE TABLE "ratingSnapshots" (
 
 CREATE TABLE "ratingHistory" (
     "historyId" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    "ratingId" UUID NOT NULL REFERENCES "ratingSnapshots"("ratingId") ON DELETE CASCADE,
+    "ratingId" UUID NOT NULL,
+    "userId" UUID,
+    "animeId" UUID,
     "priorPayload" JSONB NOT NULL,
     "changedAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 CREATE TABLE "watchlistDocuments" (
     "watchlistId" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    "userId" UUID NOT NULL REFERENCES "users"("userId") ON DELETE CASCADE,
+    "userId" UUID NOT NULL,
     "name" VARCHAR(100) NOT NULL,
     "items" JSONB NOT NULL,
     "watchlistMetadata" JSONB,
@@ -94,8 +96,8 @@ CREATE TABLE "watchlistDocuments" (
 
 CREATE TABLE "userNotes" (
     "noteId" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    "userId" UUID NOT NULL REFERENCES "users"("userId") ON DELETE CASCADE,
-    "animeId" UUID NOT NULL REFERENCES "animeCatalog"("animeId") ON DELETE CASCADE,
+    "userId" UUID NOT NULL,
+    "animeId" UUID NOT NULL,
     "noteText" TEXT,
     "tags" JSONB,
     "noteHash" VARCHAR(64) UNIQUE,
@@ -105,7 +107,7 @@ CREATE TABLE "userNotes" (
 
 CREATE TABLE "recommendationCache" (
     "cacheId" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    "userId" UUID UNIQUE NOT NULL REFERENCES "users"("userId") ON DELETE CASCADE,
+    "userId" UUID UNIQUE NOT NULL,
     "payload" JSONB NOT NULL,
     "sourceMetadata" JSONB,
     "confidenceScore" FLOAT,
@@ -114,7 +116,7 @@ CREATE TABLE "recommendationCache" (
 
 CREATE TABLE "recommendationAudit" (
     "auditId" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    "userId" UUID NOT NULL REFERENCES "users"("userId") ON DELETE CASCADE,
+    "userId" UUID NOT NULL,
     "recommendationSnapshot" JSONB NOT NULL,
     "generatedBy" VARCHAR(50),
     "generatedAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -122,16 +124,17 @@ CREATE TABLE "recommendationAudit" (
 
 CREATE TABLE "ratingEventsLog" (
     "eventId" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    "userId" UUID REFERENCES "users"("userId") ON DELETE SET NULL,
-    "animeId" UUID REFERENCES "animeCatalog"("animeId") ON DELETE SET NULL,
+    "userId" UUID,
+    "animeId" UUID,
     "score" SMALLINT NOT NULL CHECK ("score" >= 0 AND "score" <= 10),
     "eventTime" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    "payload" JSONB
+    "payload" JSONB,
+    "eventSource" VARCHAR(50)
 );
 
 CREATE TABLE "searchEventsLog" (
     "eventId" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    "userId" UUID REFERENCES "users"("userId") ON DELETE SET NULL,
+    "userId" UUID,
     "searchQuery" TEXT,
     "filters" JSONB,
     "eventTime" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -140,7 +143,8 @@ CREATE TABLE "searchEventsLog" (
 
 CREATE TABLE "importJobs" (
     "jobId" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    "adminUserId" UUID REFERENCES "users"("userId") ON DELETE SET NULL,
+    "adminUserId" UUID,
+    "adminUsername" VARCHAR(50),
     "status" VARCHAR(20) DEFAULT 'pending',
     "payload" JSONB NOT NULL,
     "startedAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
