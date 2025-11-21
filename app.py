@@ -173,7 +173,7 @@ def signup():
         
         if result:
             session['user_id'] = user_id
-            return redirect('/home')
+            return redirect('/onboarding')
         else:
             return render_template('signup.html', error="Failed to create account")
     
@@ -405,6 +405,7 @@ def admin_import_anime():
 
 @app.route("/onboarding", methods=["GET", "POST"])
 def onboarding():
+    #update the entire process below into a onBoardingService.py
     if request.method == "POST":
         # Process the form data
         age = request.form.get("age")
@@ -415,15 +416,17 @@ def onboarding():
         themes = request.form.get("themes")
 
         # For now, just return the collected data
-        return jsonify({
-            "age": age,
-            "region": region,
-            "bio": bio,
-            "genres": genres,
-            "studios": studios,
-            "themes": themes
-        })
-    return render_template("onboarding.html")
+        #update to return to homepage
+        
+        # return jsonify({
+        #     "age": age,
+        #     "region": region,
+        #     "bio": bio,
+        #     "genres": genres,
+        #     "studios": studios,
+        #     "themes": themes
+        # })
+    return redirect('/home')
 
 @app.route("/recommendations/beginner")
 def beginner_recommendations():
