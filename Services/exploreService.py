@@ -4,8 +4,9 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 from kafka import KafkaProducer, KafkaConsumer
 import threading
+from datetime import datetime
 
-# Database connection (you can import from app.py later)
+# Database connection
 SUPABASE_DB_URL = 'postgresql://postgres.tjrbxmwippcvwpkclxwd:animeftw@aws-1-us-east-2.pooler.supabase.com:5432/postgres'
 
 def get_db_connection():
@@ -62,7 +63,7 @@ class ExploreService:
             "event_type": "explore_anime_request",
             "user_id": str(user_id),
             "limit": limit,
-            "timestamp": "2025-01-19T00:00:00Z"  # You'll need to import datetime
+            "timestamp": datetime.utcnow().isoformat()
         }
         
         producer = self.get_producer()
@@ -76,18 +77,26 @@ class ExploreService:
         return False
     
     def get_random_anime_sync(self, limit=12):
-        """Get random anime directly (synchronous fallback)"""
+        """Get random anime directly (synchronous fallback) - UPDATED FOR YOUR SCHEMA"""
         try:
             anime = execute_query("""
                 SELECT 
-                    animeid, 
-                    corerecord->>'title' as title,
-                    corerecord->>'synopsis' as synopsis,
-                    corerecord->>'release_year' as release_year,
-                    corerecord->>'episodes' as episodes,
-                    popularity->>'score' as popularity_score,
-                    aboutme->>'genres' as genres
-                FROM animecatalog 
+                    ac."animeId", 
+                    ac.title,
+                    ac."alternativeTitle",
+                    ac.type,
+                    ac."releaseYear",
+                    ac.episodes,
+                    ac."malUrl",
+                    ac."imageUrl",
+                    ac."averageRating",
+                    ARRAY_AGG(ag.genre) as genres,
+                    ARRAY_AGG(agd."genreDetail") as detailed_genres
+                FROM "animeCatalog" ac
+                LEFT JOIN "animeGenres" ag ON ac."animeId" = ag."animeId"
+                LEFT JOIN "animeGenresDetailed" agd ON ac."animeId" = agd."animeId"
+                GROUP BY ac."animeId", ac.title, ac."alternativeTitle", ac.type, 
+                         ac."releaseYear", ac.episodes, ac."malUrl", ac."imageUrl", ac."averageRating"
                 ORDER BY RANDOM()
                 LIMIT %s
             """, (limit,), fetch=True)
@@ -95,7 +104,27 @@ class ExploreService:
             return anime or []
         except Exception as e:
             print(f"Error getting random anime: {e}")
-            return []
+            # Fallback: try a simpler query without joins
+            try:
+                anime = execute_query("""
+                    SELECT 
+                        "animeId", 
+                        title,
+                        "alternativeTitle",
+                        type,
+                        "releaseYear",
+                        episodes,
+                        "malUrl",
+                        "imageUrl",
+                        "averageRating"
+                    FROM "animeCatalog" 
+                    ORDER BY RANDOM()
+                    LIMIT %s
+                """, (limit,), fetch=True)
+                return anime or []
+            except Exception as e2:
+                print(f"Fallback query also failed: {e2}")
+                return []
     
     def start_explore_consumer(self):
         """Start Kafka consumer to process explore requests"""
@@ -116,8 +145,6 @@ class ExploreService:
                     
                     # Process the explore request
                     anime_data = self.get_random_anime_sync(event.get('limit', 12))
-                    
-                    # You could store this in cache or send back via another Kafka topic
                     print(f"Found {len(anime_data)} random anime for explore section")
                     
             except Exception as e:
