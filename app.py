@@ -4,69 +4,56 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import uuid
 from datetime import datetime
 import json
-import psycopg2
-from psycopg2.extras import RealDictCursor
+
+# SQLAlchemy setup
+from models import db
+app = Flask(__name__)
+app.secret_key = 'aniflow_secret_key_123'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres.tjrbxmwippcvwpkclxwd:animeftw@aws-1-us-east-2.pooler.supabase.com:5432/postgres'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db.init_app(app)
 
 # Kafka integration
 from kafka import KafkaProducer, KafkaConsumer
 import threading
-
-app = Flask(__name__)
-app.secret_key = 'aniflow_secret_key_123'
-
-# database
-SUPABASE_DB_URL = 'postgresql://postgres.tjrbxmwippcvwpkclxwd:animeftw@aws-1-us-east-2.pooler.supabase.com:5432/postgres'
-
-def get_db_connection():
-    try:
-        return psycopg2.connect(SUPABASE_DB_URL)
-    except Exception as e:
-        print(f"Database connection error: {e}")
-        return None
+import tempfile
+import os
+from sqlalchemy.orm import sessionmaker
+from models import ImportJob
 
 def execute_query(query, params=None, fetch=False):
-    conn = get_db_connection()
-    if not conn:
-        return None
+    """Execute raw SQL query using SQLAlchemy connection"""
     try:
-        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-            cursor.execute(query, params)
-            if fetch:
-                if query.strip().upper().startswith('SELECT'):
-                    result = cursor.fetchall()
-                    return [dict(row) for row in result]
-                else:
-                    return None
-            else:
-                conn.commit()
-                return {"status": "success", "rowcount": cursor.rowcount}
+        from sqlalchemy import text
+        # SQLAlchemy uses named parameters like :param_name, not %s
+        result = db.session.execute(text(query), params or {})
+        if fetch and query.strip().upper().startswith('SELECT'):
+            rows = result.fetchall()
+            return [dict(row._mapping) for row in rows]
+        else:
+            db.session.commit()
+            return {"status": "success", "rowcount": result.rowcount}
     except Exception as e:
         print(f"Query error: {e}")
-        conn.rollback()
+        db.session.rollback()
         return None
-    finally:
-        conn.close()
 
 def execute_query_one(query, params=None):
     """Execute SQL query and return single result"""
-    conn = get_db_connection()
-    if not conn:
-        return None
     try:
-        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-            cursor.execute(query, params)
-            if query.strip().upper().startswith('SELECT'):
-                result = cursor.fetchone()
-                return dict(result) if result else None
-            else:
-                conn.commit()
-                return {"status": "success", "rowcount": cursor.rowcount}
+        from sqlalchemy import text
+        # SQLAlchemy uses named parameters like :param_name, not %s
+        result = db.session.execute(text(query), params or {})
+        if query.strip().upper().startswith('SELECT'):
+            row = result.fetchone()
+            return dict(row._mapping) if row else None
+        else:
+            db.session.commit()
+            return {"status": "success", "rowcount": result.rowcount}
     except Exception as e:
         print(f"Query error: {e}")
-        conn.rollback()
+        db.session.rollback()
         return None
-    finally:
-        conn.close()
 
 #importing services 
 from Services.exploreService import explore_service
@@ -149,12 +136,12 @@ def login():
         password = request.form['password']
          # we would move this to a service later and call it here
         user = execute_query_one(
-            "SELECT userid, passwordhash FROM users WHERE email = %s AND isactive = TRUE",
-            (email,)
+            "SELECT \"userId\", \"passwordHash\" FROM \"users\" WHERE email = :email AND \"isActive\" = TRUE",
+            {"email": email}
         )
         
-        if user and check_password_hash(user['passwordhash'], password):
-            session['user_id'] = str(user['userid'])
+        if user and check_password_hash(user['passwordHash'], password):
+            session['user_id'] = str(user['userId'])
             return redirect('/home')
         
         return render_template('login.html', error="Invalid credentials")
@@ -169,8 +156,8 @@ def signup():
         password = request.form['password']
          # we would move this to a service later and call it here
         existing_user = execute_query_one(
-            "SELECT userid FROM users WHERE email = %s OR username = %s",
-            (email, username)
+            "SELECT \"userId\" FROM \"users\" WHERE email = :email OR username = :username",
+            {"email": email, "username": username}
         )
         
         if existing_user:
@@ -180,8 +167,8 @@ def signup():
         hashed_pw = generate_password_hash(password)
          # we would move this to a service later and call it here
         result = execute_query(
-            "INSERT INTO users (userid, username, email, passwordhash) VALUES (%s, %s, %s, %s)",
-            (user_id, username, email, hashed_pw)
+            "INSERT INTO \"users\" (\"userId\", username, email, \"passwordHash\") VALUES (:user_id, :username, :email, :hashed_pw)",
+            {"user_id": user_id, "username": username, "email": email, "hashed_pw": hashed_pw}
         )
         
         if result:
@@ -202,8 +189,8 @@ def home_feed():
     # we would move this to a service later and call it here
     # Get sample anime for personalized section
     sample_anime = execute_query("""
-        SELECT animeid, corerecord->>'title' as title 
-        FROM animecatalog 
+        SELECT "animeId", title 
+        FROM "animeCatalog" 
         LIMIT 6
     """, fetch=True) or []
     
@@ -250,10 +237,10 @@ def rate_anime():
     # 1. COMMAND: Write 
     rating_id = str(uuid.uuid4())
     result = execute_query("""
-        INSERT INTO ratingsnapshots (ratingid, userid, animeid, score)
-        VALUES (%s, %s, %s, %s)
-        ON CONFLICT (userid, animeid) DO UPDATE SET score = EXCLUDED.score
-    """, (rating_id, user_id, anime_id, score))
+        INSERT INTO "ratingSnapshots" ("ratingId", "userId", "animeId", score)
+        VALUES (:rating_id, :user_id, :anime_id, :score)
+        ON CONFLICT ("userId", "animeId") DO UPDATE SET score = EXCLUDED.score
+    """, {"rating_id": rating_id, "user_id": user_id, "anime_id": anime_id, "score": score})
     
     if not result:
         return jsonify({"error": "Database error"}), 500
@@ -277,8 +264,8 @@ def get_recommendations():
     user_id = session['user_id']
     
     recommendations = execute_query_one(
-        "SELECT payload FROM recommendationcache WHERE userid = %s",
-        (user_id,)
+        "SELECT payload FROM \"recommendationCache\" WHERE \"userId\" = :user_id",
+        {"user_id": user_id}
     )
     
     return jsonify(recommendations or {"recommendations": []})
@@ -295,6 +282,145 @@ def test_db():
 def logout():
     session.clear()
     return redirect('/')
+
+
+# GET: Render upload form, POST: Handle upload
+@app.route('/admin/import-anime', methods=['GET', 'POST'])
+def admin_import_anime():
+    if request.method == 'GET':
+        return render_template('importAnime.html')
+    try:
+        if 'file' not in request.files:
+            return render_template('importAnime.html', result={"error": "No file provided"})
+        file = request.files['file']
+        if file.filename == '':
+            return render_template('importAnime.html', result={"error": "No file selected"})
+        if not file.filename.endswith('.csv'):
+            return render_template('importAnime.html', result={"error": "File must be CSV"})
+        from Services.animeImportService import import_anime_csv
+        from models import db
+        # Dispose SQLAlchemy engine to clear pooled connections/schema cache
+        try:
+            db.engine.dispose()
+        except Exception:
+            pass
+
+        # Save uploaded file to a temporary path so background thread can open it
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix='.csv')
+        try:
+            file.stream.seek(0)
+        except Exception:
+            pass
+        tmp.write(file.read())
+        tmp.flush()
+        tmp.close()
+
+        # Create ImportJob record
+        job = ImportJob(adminUserId=session.get('user_id') if 'user_id' in session else None,
+                        status='pending', payload={})
+        try:
+            db.session.add(job)
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            os.unlink(tmp.name)
+            return render_template('importAnime.html', result={"error": f"Failed to create import job: {str(e)}"})
+
+        job_id = str(job.jobId)
+
+        # Background worker
+        def _run_import(path, job_id):
+            Session = sessionmaker(bind=db.engine)
+            worker_session = Session()
+            try:
+                # update job status to running
+                try:
+                    jb = worker_session.query(ImportJob).get(uuid.UUID(job_id))
+                    if jb:
+                        jb.status = 'running'
+                        jb.payload = jb.payload or {}
+                        jb.payload.update({"progress": 0})
+                        worker_session.add(jb)
+                        worker_session.commit()
+                except Exception:
+                    worker_session.rollback()
+
+                # open the temp file and create a file-like wrapper with .stream
+                class _FileWrapper:
+                    def __init__(self, fp):
+                        self.stream = fp
+
+                f = open(path, 'rb')
+                wrapped = _FileWrapper(f)
+                try:
+                    # pass job_id so the import service can update progress
+                    result = import_anime_csv(wrapped, worker_session, job_id=job_id)
+                finally:
+                    try:
+                        f.close()
+                    except Exception:
+                        pass
+
+                # store result into job.payload and mark complete
+                try:
+                    jb = worker_session.query(ImportJob).get(uuid.UUID(job_id))
+                    if jb:
+                        jb.payload = result
+                        jb.status = 'completed' if result.get('success') else 'failed'
+                        jb.completedAt = db.func.now()
+                        worker_session.add(jb)
+                        worker_session.commit()
+                except Exception:
+                    worker_session.rollback()
+
+            except Exception as e:
+                try:
+                    jb = worker_session.query(ImportJob).get(uuid.UUID(job_id))
+                    if jb:
+                        jb.status = 'failed'
+                        jb.payload = {"error": str(e)}
+                        worker_session.add(jb)
+                        worker_session.commit()
+                except Exception:
+                    worker_session.rollback()
+            finally:
+                try:
+                    worker_session.close()
+                except Exception:
+                    pass
+                # cleanup temporary file
+                try:
+                    os.unlink(path)
+                except Exception:
+                    pass
+
+        t = threading.Thread(target=_run_import, args=(tmp.name, job_id), daemon=True)
+        t.start()
+        # If the client submitted via AJAX, return JSON immediately with the job id
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json:
+            return jsonify({"message": "Import started", "job_id": job_id})
+        return render_template('importAnime.html', result={"message": "Import started", "job_id": job_id})
+    except Exception as e:
+        return render_template('importAnime.html', result={"error": str(e)})
+
+
+@app.route('/admin/import-status/<job_id>')
+def import_status(job_id):
+    try:
+        from models import db
+        # Convert job_id string to UUID for query
+        try:
+            job_uuid = uuid.UUID(job_id)
+        except ValueError:
+            return jsonify({"error": "Invalid job ID format"}), 400
+        
+        jb = db.session.query(ImportJob).get(job_uuid)
+        if not jb:
+            return jsonify({"error": "Job not found"}), 404
+        payload = jb.payload or {}
+        return jsonify({"jobId": str(jb.jobId), "status": jb.status, "payload": payload})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 # start
 print("Starting AniFlow")

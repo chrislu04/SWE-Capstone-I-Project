@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Import Anime CSV</title>
+    <style>
+        #progressContainer { margin-top: 12px; }
+        #progress { width: 100%; height: 20px; }
+        pre { background: #f4f4f4; padding: 8px; }
+    </style>
+</head>
+<body>
+    <h2>Import Anime Data (CSV)</h2>
+
+    <form id="uploadForm" action="/admin/import-anime" method="post" enctype="multipart/form-data">
+        <input id="fileInput" type="file" name="file" accept=".csv" required>
+        <button id="uploadBtn" type="submit">Upload</button>
+    </form>
+
+    <div id="progressContainer" style="display:none">
+        <label id="progressText">Preparing...</label>
+        <progress id="progress" max="100" value="0"></progress>
+    </div>
+
+    <div id="resultArea" style="margin-top:12px"></div>
+
+    <script>
+        const form = document.getElementById('uploadForm');
+        const fileInput = document.getElementById('fileInput');
+        const progressContainer = document.getElementById('progressContainer');
+        const progressBar = document.getElementById('progress');
+        const progressText = document.getElementById('progressText');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const resultArea = document.getElementById('resultArea');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            resultArea.textContent = '';
+            if (!fileInput.files || fileInput.files.length === 0) {
+                alert('Please choose a CSV file');
+                return;
+            }
+
+            const file = fileInput.files[0];
+            const formData = new FormData();
+            formData.append('file', file);
+
+            uploadBtn.disabled = true;
+            progressContainer.style.display = 'block';
+            progressBar.value = 0;
+            progressText.textContent = 'Uploading...';
+
+            try {
+                const resp = await fetch('/admin/import-anime', {
+                    method: 'POST',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    body: formData
+                });
+
+                const json = await resp.json();
+                if (!json || !json.job_id) {
+                    progressText.textContent = 'Failed to start import';
+                    resultArea.innerHTML = '<pre>' + JSON.stringify(json, null, 2) + '</pre>';
+                    uploadBtn.disabled = false;
+                    return;
+                }
+
+                const jobId = json.job_id;
+                progressText.textContent = 'Import started (job ' + jobId + ')';
+
+                // Poll for status
+                const poll = setInterval(async () => {
+                    try {
+                        const s = await fetch('/admin/import-status/' + jobId);
+                        const st = await s.json();
+                        const payload = st.payload || {};
+
+                        if (payload && typeof payload.progress === 'number' && typeof payload.total === 'number') {
+                            const pct = Math.round((payload.progress / payload.total) * 100);
+                            progressBar.value = pct;
+                            progressText.textContent = `Importing: ${payload.progress} / ${payload.total} (${pct}%)`;
+                        }
+
+                        if (st.status === 'completed' || st.status === 'failed') {
+                            clearInterval(poll);
+                            progressBar.value = 100;
+                            progressText.textContent = 'Import ' + st.status;
+                            resultArea.innerHTML = '<h3>Result</h3><pre>' + JSON.stringify(st.payload, null, 2) + '</pre>';
+                            uploadBtn.disabled = false;
+                        }
+                    } catch (err) {
+                        console.error('poll error', err);
+                    }
+                }, 1000);
+
+            } catch (err) {
+                progressText.textContent = 'Upload failed';
+                resultArea.innerHTML = '<pre>' + String(err) + '</pre>';
+                uploadBtn.disabled = false;
+            }
+        });
+    </script>
+
+</body>
+</html>
