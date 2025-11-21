@@ -39,3 +39,29 @@ def onboarding():
             "themes": themes
         })
     return render_template("onboarding.html")
+
+@app.route("/recommendations/beginner")
+def beginner_recommendations():
+    recommendations = [
+        {
+            "title": "Death Note",
+            "description": "A high school student discovers a supernatural notebook that allows him to kill anyone by writing their name in it."
+        },
+        {
+            "title": "Attack on Titan",
+            "description": "In a world where humanity resides within enormous walled cities to protect themselves from giant man-eating humanoids known as Titans, a young man vows to exterminate the Titans after they breach his hometown's wall."
+        },
+        {
+            "title": "Fullmetal Alchemist: Brotherhood",
+            "description": "Two brothers search for the Philosopher's Stone after an attempt to revive their deceased mother goes awry and leaves them with damaged bodies."
+        },
+        {
+            "title": "My Hero Academia",
+            "description": "In a world where most people have superpowers, a young boy without any enrolls in a prestigious hero academy to learn what it really means to be a hero."
+        },
+        {
+            "title": "Demon Slayer: Kimetsu no Yaiba",
+            "description": "A young man becomes a demon slayer to find a cure for his sister, who has been turned into a demon."
+        }
+    ]
+    return render_template("beginner_recommendations.html", recommendations=recommendations)
