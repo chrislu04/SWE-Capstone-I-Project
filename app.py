@@ -315,8 +315,18 @@ def admin_import_anime():
         tmp.flush()
         tmp.close()
 
-        # Create ImportJob record
-        job = ImportJob(adminUserId=session.get('user_id') if 'user_id' in session else None,
+        # Create ImportJob record with denormalized admin username
+        admin_user_id = session.get('user_id') if 'user_id' in session else None
+        admin_username = None
+        if admin_user_id:
+            admin_user = execute_query_one(
+                "SELECT username FROM \"users\" WHERE \"userId\" = :user_id",
+                {"user_id": admin_user_id}
+            )
+            admin_username = admin_user['username'] if admin_user else None
+        
+        job = ImportJob(adminUserId=admin_user_id,
+                        adminUsername=admin_username,
                         status='pending', payload={})
         try:
             db.session.add(job)
