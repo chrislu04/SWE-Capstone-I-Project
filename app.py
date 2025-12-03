@@ -225,7 +225,18 @@ def show_anime(anime_id):
         'SELECT * FROM "animeCatalog" WHERE "animeId" = :anime_id',
         {"anime_id": anime_id}
     )
-    return render_template('ShowSelectedAnime.html', anime=anime)
+    
+    user_rating = None
+    if 'user_id' in session:
+        user_id = session['user_id']
+        rating_result = execute_query_one(
+            'SELECT score FROM "ratingSnapshots" WHERE "animeId" = :anime_id AND "userId" = :user_id',
+            {"anime_id": anime_id, "user_id": user_id}
+        )
+        if rating_result:
+            user_rating = rating_result['score']
+            
+    return render_template('ShowSelectedAnime.html', anime=anime, user_rating=user_rating)
 
 @app.route('/search', methods=['GET', 'POST'])
 def advanced_search():

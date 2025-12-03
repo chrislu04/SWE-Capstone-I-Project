@@ -134,6 +134,25 @@
                         <span>{{ anime.releaseYear or 'N/A' }}</span>
                         <span>{{ anime.episodes or 'N/A' }} episodes</span>
                     </div>
+                    <div class="rating-widget" style="margin-top: 20px;">
+                        {% if user_rating %}
+                            <p>Your rating: {{ user_rating }}/10</p>
+                        {% else %}
+                            <select id="rating-score" style="padding: 10px; border-radius: 5px; font-size: 16px;">
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                                <option value="3">3</option>
+                                <option value="4">4</option>
+                                <option value="5">5</option>
+                                <option value="6">6</option>
+                                <option value="7">7</option>
+                                <option value="8">8</option>
+                                <option value="9">9</option>
+                                <option value="10">10</option>
+                            </select>
+                            <button onclick="rateAnime()" style="padding: 10px 20px; border: none; border-radius: 5px; background: #007bff; color: white; cursor: pointer;">Rate</button>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
         </div>
@@ -147,6 +166,33 @@
     </div>
 
     <script>
+        function rateAnime() {
+            const animeId = window.location.pathname.split('/')[2];
+            const score = document.getElementById('rating-score').value;
+            fetch('/api/ratings', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    anime_id: animeId,
+                    score: parseInt(score, 10),
+                }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert('Rating submitted successfully!');
+                } else {
+                    alert('Failed to submit rating: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error submitting rating:', error);
+                alert('An error occurred while submitting your rating.');
+            });
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
             const animeId = window.location.pathname.split('/')[2];
             fetch(`/anime/${animeId}/recommendations`)
