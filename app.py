@@ -57,6 +57,10 @@ def execute_query_one(query, params=None):
 
 #importing services 
 from Services.exploreService import explore_service
+from Services.searchService import SearchService
+
+search_service = SearchService()
+recommendation_service = RecommendationService()
 
 # Kafka ==========
 class KafkaManager:
@@ -215,6 +219,27 @@ def home_feed():
 
 
 
+@app.route('/anime/<anime_id>')
+def show_anime(anime_id):
+    anime = execute_query_one(
+        'SELECT * FROM "animeCatalog" WHERE "animeId" = :anime_id',
+        {"anime_id": anime_id}
+    )
+    return render_template('ShowSelectedAnime.html', anime=anime)
+
+@app.route('/search', methods=['GET', 'POST'])
+def advanced_search():
+    if request.method == 'POST':
+        title = request.form.get('title')
+        genre = request.form.get('genre')
+        year = request.form.get('year')
+        rating = request.form.get('rating')
+        
+        results = search_service.advanced_search(title, genre, year, rating)
+        return render_template('advancedSearch.html', results=results)
+    
+    return render_template('advancedSearch.html', results=[])
+
 @app.route('/api/ratings', methods=['POST'])
 def rate_anime():
     """CQRS + EDA: User rates anime (Command + Event)"""
@@ -269,6 +294,13 @@ def get_recommendations():
     )
     
     return jsonify(recommendations or {"recommendations": []})
+
+@app.route('/anime/<anime_id>/recommendations')
+def get_similar_anime(anime_id):
+    """Get recommendations for a specific anime."""
+    recommendations = recommendation_service.get_recommendations(anime_id)
+    return jsonify(recommendations)
+
 
 @app.route('/test-db')
 def test_db():
