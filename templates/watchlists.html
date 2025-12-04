@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Watchlists</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+</head>
+<body>
+    <div class="container mt-5">
+        <h1>My Watchlists</h1>
+        <div class="mb-3">
+            <form id="create-watchlist-form">
+                <div class="input-group">
+                    <input type="text" class="form-control" id="watchlist-name" placeholder="New watchlist name" required>
+                    <div class="input-group-append">
+                        <button type="submit" class="btn btn-primary">Create</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+        <ul class="list-group" id="watchlists">
+            {% for watchlist in watchlists %}
+                <li class="list-group-item" data-watchlist-id="{{ watchlist.watchlistId }}">
+                    <h2>{{ watchlist.name }}</h2>
+                    <button class="btn btn-danger btn-sm float-right delete-watchlist">Delete Watchlist</button>
+                    <ul class="list-group mt-3">
+                        {% for item in watchlist.items %}
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                {{ item.title }}
+                                <button class="btn btn-danger btn-sm remove-anime" data-anime-id="{{ item.animeId }}">Remove</button>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                    <form class="add-anime-form mt-3">
+                        <div class="input-group">
+                            <input type="text" class="form-control" name="anime_id" placeholder="Anime ID to add" required>
+                            <div class="input-group-append">
+                                <button type="submit" class="btn btn-secondary">Add Anime</button>
+                            </div>
+                        </div>
+                    </form>
+                </li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <script>
+        document.getElementById('create-watchlist-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('watchlist-name').value;
+            const response = await fetch('/watchlists', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name })
+            });
+            if (response.ok) {
+                location.reload();
+            } else {
+                alert('Failed to create watchlist');
+            }
+        });
+
+        document.querySelectorAll('.delete-watchlist').forEach(button => {
+            button.addEventListener('click', async (e) => {
+                const watchlistId = e.target.closest('.list-group-item').dataset.watchlistId;
+                const response = await fetch(`/watchlists/${watchlistId}`, {
+                    method: 'DELETE'
+                });
+                if (response.ok) {
+                    location.reload();
+                } else {
+                    alert('Failed to delete watchlist');
+                }
+            });
+        });
+
+        document.querySelectorAll('.add-anime-form').forEach(form => {
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const watchlistId = e.target.closest('.list-group-item').dataset.watchlistId;
+                const animeId = e.target.querySelector('input[name="anime_id"]').value;
+                const response = await fetch(`/watchlists/${watchlistId}/animes`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ anime_id: animeId })
+                });
+                if (response.ok) {
+                    location.reload();
+                } else {
+                    alert('Failed to add anime');
+                }
+            });
+        });
+
+        document.querySelectorAll('.remove-anime').forEach(button => {
+            button.addEventListener('click', async (e) => {
+                const watchlistId = e.target.closest('.list-group-item').dataset.watchlistId;
+                const animeId = e.target.dataset.animeId;
+                const response = await fetch(`/watchlists/${watchlistId}/animes/${animeId}`, {
+                    method: 'DELETE'
+                });
+                if (response.ok) {
+                    location.reload();
+                } else {
+                    alert('Failed to remove anime');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

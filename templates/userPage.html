@@ -338,19 +338,19 @@
             <h2 class="section-title">📊 Your Anime Stats</h2>
             <div class="stats-grid">
                 <div class="stat-card">
-                    <div class="stat-number">{{ user.stats.anime_rated or 0 }}</div>
+                    <div class="stat-number">{{ stats.anime_rated or 0 }}</div>
                     <div class="stat-label">Anime Rated</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-number">{{ user.stats.avg_rating or "0.0" }}</div>
+                    <div class="stat-number">{{ stats.avg_rating or "0.0" }}</div>
                     <div class="stat-label">Avg Rating</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-number">{{ user.stats.watchlist_count or 0 }}</div>
+                    <div class="stat-number">{{ stats.watchlist_count or 0 }}</div>
                     <div class="stat-label">In Watchlist</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-number">{{ user.stats.reviews_written or 0 }}</div>
+                    <div class="stat-number">{{ stats.reviews_written or 0 }}</div>
                     <div class="stat-label">Reviews</div>
                 </div>
             </div>

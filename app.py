@@ -58,8 +58,11 @@ def execute_query_one(query, params=None):
 #importing services 
 from Services.exploreService import explore_service
 from Services.searchService import SearchService
+from Services.recommendationService import RecommendationService
+from Services.watchlistService import WatchlistService
 
 search_service = SearchService()
+watchlist_service = WatchlistService()
 recommendation_service = RecommendationService()
 
 # Kafka ==========
@@ -306,13 +309,39 @@ def get_recommendations():
     
     return jsonify(recommendations or {"recommendations": []})
 
+@app.route('/profile')
+def profile():
+    if 'user_id' not in session:
+        return redirect('/login')
+
+    user_id = session['user_id']
+    
+    # Fetch user data (replace with a proper service call)
+    user = execute_query_one('SELECT * FROM "users" WHERE "userId" = :user_id', {"user_id": user_id})
+    
+    # Fetch user stats (replace with a proper service call)
+    anime_rated_count = execute_query_one('SELECT COUNT(*) as count FROM "ratingSnapshots" WHERE "userId" = :user_id', {"user_id": user_id})
+    avg_rating = execute_query_one('SELECT AVG(score) as avg FROM "ratingSnapshots" WHERE "userId" = :user_id', {"user_id": user_id})
+    reviews_written_count = execute_query_one('SELECT COUNT(*) as count FROM "userNotes" WHERE "userId" = :user_id', {"user_id": user_id})
+    
+    # Fetch watchlists and calculate total items
+    watchlists = watchlist_service.get_watchlists_for_user(user_id)
+    watchlist_count = sum(len(w.items) for w in watchlists)
+
+    user_stats = {
+        "anime_rated": anime_rated_count['count'] if anime_rated_count else 0,
+        "avg_rating": round(avg_rating['avg'], 1) if avg_rating and avg_rating['avg'] else 0.0,
+        "watchlist_count": watchlist_count,
+        "reviews_written": reviews_written_count['count'] if reviews_written_count else 0
+    }
+
+    return render_template('userPage.html', user=user, stats=user_stats)
+
 @app.route('/anime/<anime_id>/recommendations')
 def get_similar_anime(anime_id):
     """Get recommendations for a specific anime."""
     recommendations = recommendation_service.get_recommendations(anime_id)
     return jsonify(recommendations)
-
-
 @app.route('/test-db')
 def test_db():
     try:
@@ -524,6 +553,73 @@ def import_status(job_id):
         return jsonify({"jobId": str(jb.jobId), "status": jb.status, "payload": payload})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@app.route('/watchlists', methods=['GET'])
+def get_watchlists():
+    if 'user_id' not in session:
+        return redirect('/login')
+    
+    user_id = session['user_id']
+    watchlists = watchlist_service.get_watchlists_for_user(user_id)
+    
+    return render_template('watchlists.html', watchlists=watchlists)
+
+@app.route('/watchlists', methods=['POST'])
+def create_watchlist():
+    if 'user_id' not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    user_id = session['user_id']
+    data = request.get_json()
+    name = data.get('name')
+    
+    if not name:
+        return jsonify({"error": "Missing name"}), 400
+    
+    new_watchlist = watchlist_service.create_watchlist(user_id, name)
+    
+    return jsonify({
+        "status": "success",
+        "message": "Watchlist created",
+        "watchlist_id": str(new_watchlist.watchlistId)
+    })
+
+@app.route('/watchlists/<watchlist_id>', methods=['DELETE'])
+def delete_watchlist(watchlist_id):
+    if 'user_id' not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    if watchlist_service.delete_watchlist(watchlist_id):
+        return jsonify({"status": "success", "message": "Watchlist deleted"})
+    
+    return jsonify({"error": "Watchlist not found"}), 404
+
+@app.route('/watchlists/<watchlist_id>/animes', methods=['POST'])
+def add_anime_to_watchlist(watchlist_id):
+    if 'user_id' not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    data = request.get_json()
+    anime_id = data.get('anime_id')
+    
+    if not anime_id:
+        return jsonify({"error": "Missing anime_id"}), 400
+    
+    if watchlist_service.add_anime_to_watchlist(watchlist_id, anime_id):
+        return jsonify({"status": "success", "message": "Anime added to watchlist"})
+    
+    return jsonify({"error": "Watchlist or anime not found"}), 404
+
+@app.route('/watchlists/<watchlist_id>/animes/<anime_id>', methods=['DELETE'])
+def remove_anime_from_watchlist(watchlist_id, anime_id):
+    if 'user_id' not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    if watchlist_service.remove_anime_from_watchlist(watchlist_id, anime_id):
+        return jsonify({"status": "success", "message": "Anime removed from watchlist"})
+    
+    return jsonify({"error": "Watchlist or anime not found"}), 404
+
 
 # start
 print("Starting AniFlow")
