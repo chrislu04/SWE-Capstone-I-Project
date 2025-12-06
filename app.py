@@ -2,8 +2,9 @@
 from flask import Flask, request, jsonify, session, render_template, redirect
 from werkzeug.security import generate_password_hash, check_password_hash
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 import json
+from functools import wraps
 
 # SQLAlchemy setup
 from models import db
@@ -13,6 +14,29 @@ app.secret_key = 'aniflow_secret_key_123'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres.tjrbxmwippcvwpkclxwd:animeftw@aws-1-us-east-2.pooler.supabase.com:5432/postgres'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app)
+
+# Simple cache
+cache = {}
+
+def cache_response(ttl_seconds=300):
+    """Cache decorator with TTL"""
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            cache_key = f"browse_sections"
+            now = datetime.now()
+            
+            if cache_key in cache:
+                cached_value, timestamp = cache[cache_key]
+                if (now - timestamp).total_seconds() < ttl_seconds:
+                    print(f"DEBUG: Returning cached sections (age: {(now - timestamp).total_seconds()}s)")
+                    return cached_value
+            
+            result = f(*args, **kwargs)
+            cache[cache_key] = (result, now)
+            return result
+        return decorated_function
+    return decorator
 
 # Kafka integration
 from kafka import KafkaProducer, KafkaConsumer
@@ -225,6 +249,146 @@ def advanced_search():
         return render_template('advancedSearch.html', results=results)
     
     return render_template('advancedSearch.html', results=[])
+
+@app.route('/browse')
+def browse_anime():
+    """Browse anime by genre, highly rated, and recent releases"""
+    if 'user_id' not in session:
+        return redirect('/login')
+    
+    return render_template('browseAnime.html')
+
+@app.route('/api/browse/sections')
+@cache_response(ttl_seconds=600)  # Cache for 10 minutes
+def get_browse_sections():
+    """Get list of all sections with anime counts"""
+    if 'user_id' not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    current_year = datetime.now().year
+    sections = []
+    
+    try:
+        # Get all counts and genres in one efficient query
+        results = execute_query("""
+            SELECT 
+                'highly_rated' as type,
+                COUNT(DISTINCT CASE WHEN a."averageRating" >= 7.5 THEN a."animeId" END) as count
+            FROM "animeCatalog" a
+            UNION ALL
+            SELECT 
+                'recent' as type,
+                COUNT(DISTINCT CASE WHEN a."releaseYear" = :year THEN a."animeId" END) as count
+            FROM "animeCatalog" a
+        """, {"year": current_year}, fetch=True)
+        
+        # Build sections from counts
+        if results:
+            for row in results:
+                if row['type'] == 'highly_rated':
+                    if row['count'] > 0:
+                        sections.append({
+                            "id": "highly_rated",
+                            "name": "⭐ Highly Rated Anime",
+                            "count": row['count']
+                        })
+                elif row['type'] == 'recent':
+                    if row['count'] > 0:
+                        sections.append({
+                            "id": "recent",
+                            "name": "🆕 Anime Released This Year",
+                            "count": row['count']
+                        })
+        
+        # Get unique genres with counts more efficiently
+        # This query counts anime per genre in one pass
+        genre_results = execute_query("""
+            SELECT 
+                TRIM(BOTH ' ' FROM g.genre) as genre,
+                COUNT(DISTINCT ag."animeId") as count
+            FROM "animeGenres" ag,
+            LATERAL unnest(string_to_array(ag."genres", ',')) as g(genre)
+            WHERE ag."genres" IS NOT NULL AND ag."genres" != ''
+            GROUP BY TRIM(BOTH ' ' FROM g.genre)
+            ORDER BY count DESC, genre
+        """, fetch=True)
+        
+        if genre_results:
+            for genre_row in genre_results:
+                genre = genre_row.get('genre', '').strip()
+                count = genre_row.get('count', 0)
+                
+                # Skip hentai and empty genres
+                if not genre or genre.lower() == 'hentai' or count == 0:
+                    continue
+                
+                sections.append({
+                    "id": f"genre_{genre}",
+                    "name": f"🎭 {genre}",
+                    "count": count
+                })
+        
+        print(f"DEBUG: Loaded {len(sections)} sections")
+        return jsonify({"sections": sections})
+    
+    except Exception as e:
+        print(f"Error in get_browse_sections: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e), "sections": []}), 500
+
+@app.route('/api/browse/anime/<section_id>')
+def get_anime_for_section(section_id):
+    """Get anime for a specific section with pagination"""
+    if 'user_id' not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    offset = request.args.get('offset', 0, type=int)
+    limit = request.args.get('limit', 12, type=int)
+    current_year = datetime.now().year
+    
+    anime_list = []
+    
+    try:
+        if section_id == 'highly_rated':
+            anime_list = execute_query("""
+                SELECT a."animeId", a."title", a."averageRating", a."releaseYear", 
+                       a."imageUrl", a."type", a."episodes", ag."genres"
+                FROM "animeCatalog" a
+                LEFT JOIN "animeGenres" ag ON a."animeId" = ag."animeId"
+                WHERE a."averageRating" IS NOT NULL AND a."averageRating" >= 7.5
+                ORDER BY a."averageRating" DESC
+                LIMIT :limit OFFSET :offset
+            """, {"limit": limit, "offset": offset}, fetch=True)
+        
+        elif section_id == 'recent':
+            anime_list = execute_query("""
+                SELECT a."animeId", a."title", a."averageRating", a."releaseYear", 
+                       a."imageUrl", a."type", a."episodes", ag."genres"
+                FROM "animeCatalog" a
+                LEFT JOIN "animeGenres" ag ON a."animeId" = ag."animeId"
+                WHERE a."releaseYear" = :year
+                ORDER BY a."averageRating" DESC
+                LIMIT :limit OFFSET :offset
+            """, {"year": current_year, "limit": limit, "offset": offset}, fetch=True)
+        
+        elif section_id.startswith('genre_'):
+            genre = section_id.replace('genre_', '')
+            anime_list = execute_query("""
+                SELECT DISTINCT a."animeId", a."title", a."averageRating", a."releaseYear", 
+                       a."imageUrl", a."type", a."episodes", ag."genres"
+                FROM "animeCatalog" a
+                INNER JOIN "animeGenres" ag ON a."animeId" = ag."animeId"
+                WHERE POSITION(:genre IN ag."genres") > 0
+                ORDER BY a."averageRating" DESC
+                LIMIT :limit OFFSET :offset
+            """, {"genre": genre, "limit": limit, "offset": offset}, fetch=True)
+        
+        return jsonify({"anime": anime_list or []})
+    
+    except Exception as e:
+        print(f"Error in get_anime_for_section: {e}")
+        return jsonify({"error": str(e), "anime": []}), 500
 
 @app.route('/api/ratings', methods=['POST'])
 def rate_anime():
