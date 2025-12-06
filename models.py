@@ -51,20 +51,8 @@ class Anime(db.Model):
 class AnimeGenre(db.Model):
     __tablename__ = 'animeGenres'
     id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    animeId = db.Column(UUID(as_uuid=True), nullable=False, index=True)
-    genre = db.Column(db.String(100), nullable=False, index=True)
-    __table_args__ = (
-        UniqueConstraint('animeId', 'genre', name='uq_anime_genre'),
-    )
-
-class AnimeGenreDetailed(db.Model):
-    __tablename__ = 'animeGenresDetailed'
-    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    animeId = db.Column(UUID(as_uuid=True), nullable=False, index=True)
-    genreDetail = db.Column(db.String(100), nullable=False, index=True)
-    __table_args__ = (
-        UniqueConstraint('animeId', 'genreDetail', name='uq_anime_genre_detail'),
-    )
+    animeId = db.Column(UUID(as_uuid=True), nullable=False, unique=True, index=True)
+    genres = db.Column(db.Text, nullable=False)
 
 class Rating(db.Model):
     __tablename__ = 'ratingSnapshots'

@@ -90,13 +90,13 @@ class ExploreService:
                     ac."malUrl",
                     ac."imageUrl",
                     ac."averageRating",
-                    ARRAY_AGG(ag.genre) as genres,
-                    ARRAY_AGG(agd."genreDetail") as detailed_genres
+                    COALESCE(string_to_array(ag.genres, ','), ARRAY[]::text[]) AS genres
                 FROM "animeCatalog" ac
                 LEFT JOIN "animeGenres" ag ON ac."animeId" = ag."animeId"
-                LEFT JOIN "animeGenresDetailed" agd ON ac."animeId" = agd."animeId"
-                GROUP BY ac."animeId", ac.title, ac."alternativeTitle", ac.type, 
-                         ac."releaseYear", ac.episodes, ac."malUrl", ac."imageUrl", ac."averageRating"
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM "animeGenres" ag2, unnest(string_to_array(ag2.genres, ',')) AS g
+                    WHERE ag2."animeId" = ac."animeId" AND LOWER(trim(g)) = 'hentai'
+                )
                 ORDER BY RANDOM()
                 LIMIT %s
             """, (limit,), fetch=True)
@@ -108,16 +108,22 @@ class ExploreService:
             try:
                 anime = execute_query("""
                     SELECT 
-                        "animeId", 
-                        title,
-                        "alternativeTitle",
-                        type,
-                        "releaseYear",
-                        episodes,
-                        "malUrl",
-                        "imageUrl",
-                        "averageRating"
-                    FROM "animeCatalog" 
+                        ac."animeId", 
+                        ac.title,
+                        ac."alternativeTitle",
+                        ac.type,
+                        ac."releaseYear",
+                        ac.episodes,
+                        ac."malUrl",
+                        ac."imageUrl",
+                        ac."averageRating",
+                        COALESCE(string_to_array(ag.genres, ','), ARRAY[]::text[]) AS genres
+                    FROM "animeCatalog" ac
+                    LEFT JOIN "animeGenres" ag ON ac."animeId" = ag."animeId"
+                    WHERE NOT EXISTS (
+                        SELECT 1 FROM "animeGenres" ag2, unnest(string_to_array(ag2.genres, ',')) AS g
+                        WHERE ag2."animeId" = ac."animeId" AND LOWER(trim(g)) = 'hentai'
+                    )
                     ORDER BY RANDOM()
                     LIMIT %s
                 """, (limit,), fetch=True)

@@ -3,26 +3,103 @@
 <head>
     <meta charset="UTF-8">
     <title>Import Anime CSV</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
-        #progressContainer { margin-top: 12px; }
-        #progress { width: 100%; height: 20px; }
-        pre { background: #f4f4f4; padding: 8px; }
+        :root {
+            --bg: #0f172a;
+            --panel: #111827;
+            --accent: #10b981;
+            --muted: #cbd5e1;
+            --text: #e2e8f0;
+            --border: #1f2937;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: radial-gradient(circle at 20% 20%, rgba(16,185,129,0.12), transparent 25%),
+                        radial-gradient(circle at 80% 10%, rgba(59,130,246,0.12), transparent 22%),
+                        var(--bg);
+            font-family: 'Work Sans', 'Segoe UI', sans-serif;
+            color: var(--text);
+            display: flex;
+            justify-content: center;
+            padding: 32px 16px;
+        }
+        .card {
+            width: 100%;
+            max-width: 720px;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 18px 40px rgba(0,0,0,0.35);
+        }
+        h2 { margin: 0 0 6px; font-weight: 600; }
+        .subtitle { color: var(--muted); margin-bottom: 20px; }
+        form { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+        input[type="file"] {
+            color: var(--text);
+            background: #0b1220;
+            border: 1px dashed var(--border);
+            padding: 10px 12px;
+            border-radius: 10px;
+            max-width: 360px;
+        }
+        button {
+            background: linear-gradient(135deg, #10b981, #0ea5e9);
+            color: #0b1220;
+            border: none;
+            border-radius: 10px;
+            padding: 10px 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.08s ease, box-shadow 0.12s ease;
+        }
+        button:disabled { opacity: 0.6; cursor: not-allowed; }
+        button:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(16,185,129,0.25); }
+        #progressContainer { margin-top: 18px; display: none; }
+        progress { width: 100%; height: 16px; border-radius: 8px; overflow: hidden; }
+        progress::-webkit-progress-bar { background: #0b1220; }
+        progress::-webkit-progress-value { background: var(--accent); }
+        progress::-moz-progress-bar { background: var(--accent); }
+        #progressText { display: block; margin-bottom: 8px; font-weight: 600; }
+        #progressMeta { font-size: 13px; color: var(--muted); margin-top: 4px; display: none; }
+        #resultArea { margin-top: 16px; }
+        pre {
+            background: #0b1220;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px;
+            color: var(--muted);
+            overflow: auto;
+        }
     </style>
 </head>
 <body>
-    <h2>Import Anime Data (CSV)</h2>
+    <div class="card">
+        <h2>Import Anime Data</h2>
+        <div class="subtitle">Upload a CSV and monitor live progress, throughput, and ETA.</div>
 
-    <form id="uploadForm" action="/admin/import-anime" method="post" enctype="multipart/form-data">
-        <input id="fileInput" type="file" name="file" accept=".csv" required>
-        <button id="uploadBtn" type="submit">Upload</button>
-    </form>
+        <form id="uploadForm" action="/admin/import-anime" method="post" enctype="multipart/form-data">
+            <input id="fileInput" type="file" name="file" accept=".csv" required>
+            <button id="uploadBtn" type="submit">Upload</button>
+        </form>
 
-    <div id="progressContainer" style="display:none">
-        <label id="progressText">Preparing...</label>
-        <progress id="progress" max="100" value="0"></progress>
+        <div id="progressContainer">
+            <label id="progressText">Preparing...</label>
+            <progress id="progress" max="100" value="0"></progress>
+            <div id="progressMeta"></div>
+        </div>
+
+        <div id="livePayload" style="margin-top:14px; display:none">
+            <div style="font-weight:600; margin-bottom:6px; color: var(--muted);">Live status</div>
+            <pre id="payloadPre" style="max-height:200px"></pre>
+        </div>
+        <div id="resultArea"></div>
     </div>
-
-    <div id="resultArea" style="margin-top:12px"></div>
 
     <script>
         const form = document.getElementById('uploadForm');
@@ -30,6 +107,7 @@
         const progressContainer = document.getElementById('progressContainer');
         const progressBar = document.getElementById('progress');
         const progressText = document.getElementById('progressText');
+        const progressMeta = document.getElementById('progressMeta');
         const uploadBtn = document.getElementById('uploadBtn');
         const resultArea = document.getElementById('resultArea');
 
@@ -49,6 +127,8 @@
             progressContainer.style.display = 'block';
             progressBar.value = 0;
             progressText.textContent = 'Uploading...';
+            progressMeta.style.display = 'none';
+            document.getElementById('livePayload').style.display = 'none';
 
             try {
                 const resp = await fetch('/admin/import-anime', {
@@ -68,30 +148,57 @@
                 const jobId = json.job_id;
                 progressText.textContent = 'Import started (job ' + jobId + ')';
 
+                let lastProgress = -1;  // Track last progress value
+                let lastPayloadJson = '';  // Track last payload JSON
                 // Poll for status
                 const poll = setInterval(async () => {
                     try {
                         const s = await fetch('/admin/import-status/' + jobId);
                         const st = await s.json();
                         const payload = st.payload || {};
+                        const payloadPre = document.getElementById('payloadPre');
+                        const currentPayloadJson = JSON.stringify(st);
+                        
+                        console.log(`[Poll] Status: ${st.status}, Progress: ${payload.progress}/${payload.total}`);
+                        
+                        // Only update live payload if it changed
+                        if (currentPayloadJson !== lastPayloadJson) {
+                            lastPayloadJson = currentPayloadJson;
+                            payloadPre.textContent = JSON.stringify(st, null, 2);
+                            document.getElementById('livePayload').style.display = 'block';
+                            console.log('[Poll] Payload updated in UI');
+                        }
 
-                        if (payload && typeof payload.progress === 'number' && typeof payload.total === 'number') {
+                        if (payload && typeof payload.progress === 'number' && typeof payload.total === 'number' && payload.total > 0) {
                             const pct = Math.round((payload.progress / payload.total) * 100);
                             progressBar.value = pct;
                             progressText.textContent = `Importing: ${payload.progress} / ${payload.total} (${pct}%)`;
+
+                            const elapsed = payload.elapsedSeconds || 0;
+                            const eta = payload.etaSeconds;
+                            const rate = elapsed > 0 ? (payload.progress / elapsed).toFixed(2) : '0';
+                            const etaText = eta != null ? `${Math.max(0, Math.round(eta))}s remaining` : 'estimating...';
+                            progressMeta.style.display = 'block';
+                            progressMeta.textContent = `Rate: ${rate} rows/s · Elapsed: ${Math.round(elapsed || 0)}s · ETA: ${etaText}`;
+                        } else if (payload && typeof payload.progress === 'number') {
+                            progressText.textContent = `Importing: ${payload.progress} rows processed...`;
+                            progressMeta.style.display = 'block';
+                            progressMeta.textContent = 'Waiting for total row count...';
                         }
 
                         if (st.status === 'completed' || st.status === 'failed') {
                             clearInterval(poll);
                             progressBar.value = 100;
                             progressText.textContent = 'Import ' + st.status;
+                            progressMeta.textContent = '';
                             resultArea.innerHTML = '<h3>Result</h3><pre>' + JSON.stringify(st.payload, null, 2) + '</pre>';
                             uploadBtn.disabled = false;
+                            console.log('[Poll] Import completed');
                         }
                     } catch (err) {
                         console.error('poll error', err);
                     }
-                }, 1000);
+                }, 500);  // Poll every 500ms instead of 1000ms for faster updates
 
             } catch (err) {
                 progressText.textContent = 'Upload failed';

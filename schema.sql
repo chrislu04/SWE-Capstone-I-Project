@@ -5,7 +5,6 @@ DROP TABLE IF EXISTS "ratingSnapshots" CASCADE;
 DROP TABLE IF EXISTS "userNotes" CASCADE;
 DROP TABLE IF EXISTS "recommendationAudit" CASCADE;
 DROP TABLE IF EXISTS "recommendationCache" CASCADE;
-DROP TABLE IF EXISTS "animeGenresDetailed" CASCADE;
 DROP TABLE IF EXISTS "animeGenres" CASCADE;
 DROP TABLE IF EXISTS "animeCatalog" CASCADE;
 DROP TABLE IF EXISTS "watchlistDocuments" CASCADE;
@@ -53,15 +52,8 @@ CREATE TABLE "animeCatalog" (
 CREATE TABLE "animeGenres" (
     "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     "animeId" UUID NOT NULL,
-    "genre" VARCHAR(100) NOT NULL,
-    UNIQUE("animeId", "genre")
-);
-
-CREATE TABLE "animeGenresDetailed" (
-    "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    "animeId" UUID NOT NULL,
-    "genreDetail" VARCHAR(100) NOT NULL,
-    UNIQUE("animeId", "genreDetail")
+    "genres" TEXT NOT NULL,
+    UNIQUE("animeId")
 );
 
 CREATE TABLE "ratingSnapshots" (
@@ -154,8 +146,7 @@ CREATE TABLE "importJobs" (
 CREATE INDEX idx_anime_title ON "animeCatalog"("title");
 CREATE INDEX idx_anime_year ON "animeCatalog"("releaseYear");
 CREATE INDEX idx_anime_rating ON "animeCatalog"("averageRating");
-CREATE INDEX idx_genre ON "animeGenres"("genre");
-CREATE INDEX idx_genre_detail ON "animeGenresDetailed"("genreDetail");
+CREATE INDEX idx_genre_anime_id ON "animeGenres"("animeId");
 CREATE INDEX idx_rating_user ON "ratingSnapshots"("userId");
 CREATE INDEX idx_rating_anime ON "ratingSnapshots"("animeId");
 CREATE INDEX idx_watchlist_user ON "watchlistDocuments"("userId");

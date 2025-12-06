@@ -164,8 +164,12 @@ def home_feed():
     # we would move this to a service later and call it here
     # Get sample anime for personalized section
     sample_anime = execute_query("""
-        SELECT "animeId", title 
-        FROM "animeCatalog" 
+        SELECT ac."animeId", ac.title 
+        FROM "animeCatalog" ac
+        WHERE NOT EXISTS (
+            SELECT 1 FROM "animeGenres" ag, unnest(string_to_array(ag.genres, ',')) AS g
+            WHERE ag."animeId" = ac."animeId" AND LOWER(trim(g)) = 'hentai'
+        )
         LIMIT 6
     """, fetch=True) or []
     
@@ -380,69 +384,76 @@ def admin_import_anime():
 
         # Background worker
         def _run_import(path, job_id):
-            Session = sessionmaker(bind=db.engine)
-            worker_session = Session()
-            try:
-                # update job status to running
+            # Ensure Flask app context for SQLAlchemy engine access
+            with app.app_context():
+                Session = sessionmaker(bind=db.engine)
+                worker_session = Session()
                 try:
-                    jb = worker_session.query(ImportJob).get(uuid.UUID(job_id))
-                    if jb:
-                        jb.status = 'running'
-                        jb.payload = jb.payload or {}
-                        jb.payload.update({"progress": 0})
-                        worker_session.add(jb)
-                        worker_session.commit()
-                except Exception:
-                    worker_session.rollback()
+                    # update job status to running
+                    try:
+                        jb = worker_session.get(ImportJob, uuid.UUID(job_id))
+                        if jb:
+                            jb.status = 'running'
+                            jb.payload = jb.payload or {}
+                            jb.payload.update({"progress": 0})
+                            worker_session.add(jb)
+                            worker_session.commit()
+                    except Exception:
+                        worker_session.rollback()
 
-                # open the temp file and create a file-like wrapper with .stream
-                class _FileWrapper:
-                    def __init__(self, fp):
-                        self.stream = fp
+                    # open the temp file and create a file-like wrapper with .stream
+                    class _FileWrapper:
+                        def __init__(self, fp):
+                            self.stream = fp
 
-                f = open(path, 'rb')
-                wrapped = _FileWrapper(f)
-                try:
-                    # pass job_id so the import service can update progress
-                    result = import_anime_csv(wrapped, worker_session, job_id=job_id)
+                    f = open(path, 'rb')
+                    wrapped = _FileWrapper(f)
+                    try:
+                        # pass job_id so the import service can update progress
+                        result = import_anime_csv(wrapped, worker_session, job_id=job_id)
+                    finally:
+                        try:
+                            f.close()
+                        except Exception:
+                            pass
+
+                    # store result into job.payload and mark complete
+                    try:
+                        jb = worker_session.get(ImportJob, uuid.UUID(job_id))
+                        if jb:
+                            current_payload = jb.payload or {}
+                            # Merge to keep progress stats while adding final result
+                            merged = {**current_payload, **(result or {})}
+                            jb.payload = merged
+                            jb.status = 'completed' if result.get('success') else 'failed'
+                            jb.completedAt = db.func.now()
+                            worker_session.add(jb)
+                            worker_session.commit()
+                    except Exception:
+                        worker_session.rollback()
+
+                except Exception as e:
+                    try:
+                        jb = worker_session.get(ImportJob, uuid.UUID(job_id))
+                        if jb:
+                            current_payload = jb.payload or {}
+                            current_payload.update({"error": str(e)})
+                            jb.status = 'failed'
+                            jb.payload = current_payload
+                            worker_session.add(jb)
+                            worker_session.commit()
+                    except Exception:
+                        worker_session.rollback()
                 finally:
                     try:
-                        f.close()
+                        worker_session.close()
                     except Exception:
                         pass
-
-                # store result into job.payload and mark complete
-                try:
-                    jb = worker_session.query(ImportJob).get(uuid.UUID(job_id))
-                    if jb:
-                        jb.payload = result
-                        jb.status = 'completed' if result.get('success') else 'failed'
-                        jb.completedAt = db.func.now()
-                        worker_session.add(jb)
-                        worker_session.commit()
-                except Exception:
-                    worker_session.rollback()
-
-            except Exception as e:
-                try:
-                    jb = worker_session.query(ImportJob).get(uuid.UUID(job_id))
-                    if jb:
-                        jb.status = 'failed'
-                        jb.payload = {"error": str(e)}
-                        worker_session.add(jb)
-                        worker_session.commit()
-                except Exception:
-                    worker_session.rollback()
-            finally:
-                try:
-                    worker_session.close()
-                except Exception:
-                    pass
-                # cleanup temporary file
-                try:
-                    os.unlink(path)
-                except Exception:
-                    pass
+                    # cleanup temporary file
+                    try:
+                        os.unlink(path)
+                    except Exception:
+                        pass
 
         t = threading.Thread(target=_run_import, args=(tmp.name, job_id), daemon=True)
         t.start()
@@ -537,11 +548,30 @@ def import_status(job_id):
         except ValueError:
             return jsonify({"error": "Invalid job ID format"}), 400
         
-        jb = db.session.query(ImportJob).get(job_uuid)
+        # Expire session to force fresh DB query
+        db.session.expire_all()
+        jb = db.session.get(ImportJob, job_uuid)
         if not jb:
             return jsonify({"error": "Job not found"}), 404
+        
+        # Refresh object from database to get latest payload
+        db.session.refresh(jb)
+        
         payload = jb.payload or {}
-        return jsonify({"jobId": str(jb.jobId), "status": jb.status, "payload": payload})
+        progress = payload.get("progress") if isinstance(payload, dict) else None
+        total = payload.get("total") if isinstance(payload, dict) else None
+        percent = payload.get("percent") if isinstance(payload, dict) else None
+        if progress is not None and total:
+            percent = percent if percent is not None else round((progress / total) * 100, 2)
+        
+        return jsonify({
+            "jobId": str(jb.jobId),
+            "status": jb.status,
+            "payload": payload,
+            "percent": percent,
+            "progress": progress,
+            "total": total
+        })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

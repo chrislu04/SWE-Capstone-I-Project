@@ -3,7 +3,7 @@ from typing import Optional, List
 import pandas as pd
 import uuid
 from datetime import datetime
-from models import Anime, AnimeGenre, AnimeGenreDetailed, ImportJob, db
+from models import Anime, AnimeGenre, ImportJob, db
 import json
 
 
@@ -48,6 +48,15 @@ class AnimeRowModel(BaseModel):
                 pass
             return [g.strip() for g in val.split(",") if g.strip()]
 
+        base_genres = parse_list(self.genres)
+        detailed_genres = parse_list(self.genres_detailed)
+
+        # Preserve order while removing duplicates across both lists
+        combined_genres = []
+        for g in base_genres + detailed_genres:
+            if g and g not in combined_genres:
+                combined_genres.append(g)
+
         return {
             "title": self.title,
             "alternativeTitle": self.alternative_title,
@@ -58,8 +67,7 @@ class AnimeRowModel(BaseModel):
             "sequel": self.sequel,
             "imageUrl": self.image_url,
             "averageRating": self.score,
-            "genres": parse_list(self.genres),
-            "genresDetailed": parse_list(self.genres_detailed)
+            "genresCombined": combined_genres
         }
 
 
@@ -106,18 +114,65 @@ def import_anime_csv(file, session, job_id: str = None):
 
     session.autoflush = False
 
+    def update_job(job_uuid, status, progress, total, errors_list, started_at):
+        """Persist progress info to ImportJob payload."""
+        if not job_uuid:
+            return
+        try:
+            percent = round((progress / total) * 100, 2) if total > 0 else 0
+            elapsed = (datetime.utcnow() - started_at).total_seconds() if started_at else 0
+            eta = None
+            if elapsed > 0 and progress > 0 and total > 0:
+                rate = progress / elapsed
+                if rate > 0:
+                    eta = max(int((total - progress) / rate), 0)
+            payload = {
+                "progress": progress,
+                "total": total,
+                "percent": percent,
+                "errors": errors_list[:50] if errors_list else [],
+                "elapsedSeconds": elapsed,
+                "etaSeconds": eta,
+                "updatedAt": datetime.utcnow().isoformat()
+            }
+            # Query using the current session's connection
+            jb = session.query(ImportJob).filter(ImportJob.jobId == job_uuid).first()
+            if jb:
+                jb.payload = payload
+                jb.status = status
+                session.flush()
+                session.commit()
+        except Exception as e:
+            pass
+
     # Main import loop with periodic job updates
     try:
         imported_count = 0
         total = len(valid_rows)
-        batch_update_interval = 100
+        # More frequent progress writes so the UI updates in real time
+        # For small files, update more frequently
+        if total <= 10:
+            batch_update_interval = 1  # Update every row for very small files
+        elif total <= 100:
+            batch_update_interval = 5  # Update every 5 rows for small files
+        elif total <= 1000:
+            batch_update_interval = 50  # Update every 50 rows
+        elif total <= 5000:
+            batch_update_interval = 100  # Update every 100 rows
+        else:
+            batch_update_interval = 200  # Update every 200 rows for large files
 
         job_uuid = None
+        job_start = datetime.utcnow()
         if job_id:
             try:
                 job_uuid = uuid.UUID(job_id)
             except Exception:
                 job_uuid = None
+
+        # Initialize job payload with totals
+        if job_uuid:
+            update_job(job_uuid, 'running', 0, total, errors, job_start)
 
         for idx, row_data in enumerate(valid_rows, start=1):
             try:
@@ -136,36 +191,18 @@ def import_anime_csv(file, session, job_id: str = None):
                 session.add(anime)
                 session.flush()  # Flush to get the generated animeId
 
-                # Add genres
-                for genre in row_data.get("genres", []) or []:
-                    if genre:
-                        genre_record = AnimeGenre(animeId=anime.animeId, genre=genre)
-                        session.add(genre_record)
-
-                # Add detailed genres
-                for genre_detail in row_data.get("genresDetailed", []) or []:
-                    if genre_detail:
-                        genre_detail_record = AnimeGenreDetailed(animeId=anime.animeId, genreDetail=genre_detail)
-                        session.add(genre_detail_record)
+                # Add combined genres as a single comma-separated field
+                combined_genres = row_data.get("genresCombined", []) or []
+                genre_string = ",".join([g.strip() for g in combined_genres if g and g.strip()])
+                if genre_string:
+                    genre_record = AnimeGenre(animeId=anime.animeId, genres=genre_string)
+                    session.add(genre_record)
 
                 imported_count += 1
 
                 # Update job progress occasionally
                 if job_uuid and (idx % batch_update_interval == 0 or idx == total):
-                    try:
-                        jb = session.query(ImportJob).get(job_uuid)
-                        if jb:
-                            payload = jb.payload or {}
-                            payload.update({"progress": idx, "total": total})
-                            payload_errors = payload.get('errors', [])
-                            payload_errors.extend(errors)
-                            payload['errors'] = payload_errors
-                            jb.payload = payload
-                            jb.status = 'running'
-                            session.add(jb)
-                            session.commit()
-                    except Exception:
-                        session.rollback()
+                    update_job(job_uuid, 'running', imported_count, total, errors, job_start)
 
             except Exception as row_err:
                 # Don't rollback here - just log error and skip this row
@@ -185,26 +222,21 @@ def import_anime_csv(file, session, job_id: str = None):
 
         # Final job update
         if job_uuid:
-            try:
-                jb = session.query(ImportJob).get(job_uuid)
-                if jb:
-                    payload = jb.payload or {}
-                    payload.update({"progress": imported_count, "total": total})
-                    payload_errors = payload.get('errors', [])
-                    payload_errors.extend(errors)
-                    payload['errors'] = payload_errors
-                    jb.payload = payload
-                    jb.status = 'completed'
-                    session.add(jb)
-                    session.commit()
-            except Exception:
-                session.rollback()
+            update_job(job_uuid, 'completed', imported_count, total, errors, job_start)
 
+        # Build final stats for callers
+        elapsed_final = (datetime.utcnow() - job_start).total_seconds() if job_start else None
+        percent_final = round((imported_count / total) * 100, 2) if total else 0
         return {
             "success": True,
             "imported": imported_count,
             "errors": errors,
-            "message": f"Successfully imported {imported_count} anime records"
+            "message": f"Successfully imported {imported_count} anime records",
+            "progress": imported_count,
+            "total": total,
+            "percent": percent_final,
+            "elapsedSeconds": elapsed_final,
+            "etaSeconds": 0
         }
     except Exception as e:
         try:
@@ -216,7 +248,7 @@ def import_anime_csv(file, session, job_id: str = None):
         if job_id:
             try:
                 job_uuid = uuid.UUID(job_id)
-                jb = session.query(ImportJob).get(job_uuid)
+                jb = session.get(ImportJob, job_uuid)
                 if jb:
                     jb.payload = {"error": str(e)}
                     jb.status = 'failed'
