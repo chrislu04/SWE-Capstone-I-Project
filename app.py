@@ -805,6 +805,59 @@ def remove_anime_from_watchlist(watchlist_id, anime_id):
     
     return jsonify({"error": "Watchlist or anime not found"}), 404
 
+@app.route('/api/watchlists', methods=['GET'])
+def api_get_watchlists():
+    if 'user_id' not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    user_id = session['user_id']
+    watchlists = watchlist_service.get_watchlists_for_user(user_id)
+    
+    return jsonify([{
+        "watchlistId": str(w.watchlistId),
+        "name": w.name
+    } for w in watchlists])
+
+@app.route('/api/anime/<anime_id>', methods=['GET'])
+def get_anime_details(anime_id):
+    """Get detailed anime information by ID"""
+    try:
+        anime = execute_query_one("""
+            SELECT a."animeId", a.title, a."averageRating", a."releaseYear", 
+                   a."imageUrl", a.type, a.episodes, ag.genres
+            FROM "animeCatalog" a
+            LEFT JOIN "animeGenres" ag ON a."animeId" = ag."animeId"
+            WHERE a."animeId" = :anime_id
+        """, {"anime_id": anime_id})
+        
+        if not anime:
+            return jsonify({"error": "Anime not found"}), 404
+        
+        return jsonify(anime)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/anime/search', methods=['GET'])
+def search_anime():
+    """Search anime by title for autocomplete"""
+    query = request.args.get('q', '').strip()
+    
+    if not query or len(query) < 2:
+        return jsonify([])
+    
+    try:
+        results = execute_query("""
+            SELECT a."animeId", a.title, a."releaseYear"
+            FROM "animeCatalog" a
+            WHERE LOWER(a.title) LIKE LOWER(:query)
+            ORDER BY a."averageRating" DESC NULLS LAST
+            LIMIT 10
+        """, {"query": f"%{query}%"}, fetch=True)
+        
+        return jsonify(results or [])
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 # start
 print("Starting AniFlow")

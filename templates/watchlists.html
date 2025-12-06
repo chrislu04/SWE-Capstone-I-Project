@@ -112,13 +112,23 @@
             border-radius: 4px;
             font-size: 14px;
             width: 100%;
+            box-sizing: border-box;
         }
         .input-group {
             display: flex;
             gap: 10px;
+            align-items: stretch;
         }
         .input-group-append {
             display: flex;
+            align-items: stretch;
+        }
+        .input-group-append .btn {
+            height: 100%;
+            white-space: nowrap;
+            padding: 10px 16px;
+            display: flex;
+            align-items: center;
         }
         .d-flex {
             display: flex;
@@ -128,6 +138,156 @@
         }
         .align-items-center {
             align-items: center;
+        }
+        .watchlist-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .watchlist-header h2 {
+            margin: 0;
+        }
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.6);
+        }
+        .modal-content {
+            background-color: white;
+            margin: 3% auto;
+            padding: 0;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 900px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+            display: flex;
+            position: relative;
+            overflow: hidden;
+            max-height: 90vh;
+        }
+        #modalImageContainer {
+            width: 300px;
+            min-width: 300px;
+            background: #f5f5f5;
+            border-radius: 10px 0 0 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-image {
+            width: 100%;
+            height: auto;
+            max-height: 90vh;
+            object-fit: contain;
+            border-radius: 10px 0 0 10px;
+        }
+        .modal-image-placeholder {
+            width: 100%;
+            height: 420px;
+            background: #e3f2fd;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #1976d2;
+            font-size: 14px;
+        }
+        .modal-info {
+            padding: 30px;
+            flex: 1;
+            overflow-y: auto;
+        }
+        .modal-close {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #f5f5f5;
+            border: none;
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            font-size: 18px;
+            cursor: pointer;
+        }
+        .modal-close:hover {
+            background: #e0e0e0;
+        }
+        .modal-title {
+            font-size: 22px;
+            font-weight: bold;
+            margin: 0 0 15px 0;
+            padding-right: 30px;
+        }
+        .modal-meta {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 10px;
+            font-size: 14px;
+            color: #555;
+        }
+        .modal-genres {
+            margin-top: 15px;
+        }
+        .genre-tag {
+            display: inline-block;
+            background: #e9ecef;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            margin: 4px 4px 0 0;
+            color: #495057;
+        }
+        .anime-item-title {
+            cursor: pointer;
+            flex: 1;
+        }
+        .anime-item-title:hover {
+            color: #007bff;
+        }
+        .autocomplete-container {
+            position: relative;
+            flex: 1;
+            min-width: 0;
+        }
+        .autocomplete-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #ccc;
+            border-top: none;
+            border-radius: 0 0 4px 4px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+        }
+        .autocomplete-item {
+            padding: 10px;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .autocomplete-item:hover {
+            background-color: #f8f9fa;
+        }
+        .autocomplete-item:last-child {
+            border-bottom: none;
+        }
+        .autocomplete-item-title {
+            font-weight: bold;
+            color: #333;
+        }
+        .autocomplete-item-year {
+            font-size: 12px;
+            color: #666;
+            margin-left: 8px;
         }
     </style>
 </head>
@@ -160,19 +320,31 @@
         <ul class="list-group" id="watchlists">
             {% for watchlist in watchlists %}
                 <li class="list-group-item" data-watchlist-id="{{ watchlist.watchlistId }}">
-                    <h2>{{ watchlist.name }}</h2>
-                    <button class="btn btn-danger btn-sm float-right delete-watchlist">Delete Watchlist</button>
-                    <ul class="list-group mt-3">
+                    <div class="watchlist-header">
+                        <h2>{{ watchlist.name }}</h2>
+                        <button class="btn btn-danger btn-sm delete-watchlist">Delete Watchlist</button>
+                    </div>
+                    <ul class="list-group">
                         {% for item in watchlist.items %}
                             <li class="list-group-item d-flex justify-content-between align-items-center">
-                                {{ item.title }}
-                                <button class="btn btn-danger btn-sm remove-anime" data-anime-id="{{ item.animeId }}">Remove</button>
+                                <span class="anime-item-title" onclick="showAnimeModal('{{ item.animeId }}')">
+                                    {{ item.title }}
+                                </span>
+                                <button class="btn btn-danger btn-sm remove-anime" data-anime-id="{{ item.animeId }}" onclick="event.stopPropagation();">Remove</button>
                             </li>
                         {% endfor %}
                     </ul>
                     <form class="add-anime-form mt-3">
                         <div class="input-group">
-                            <input type="text" class="form-control" name="anime_id" placeholder="Anime ID to add" required>
+                            <div class="autocomplete-container">
+                                <input type="text" 
+                                       class="form-control anime-search-input" 
+                                       placeholder="Search anime by title..." 
+                                       autocomplete="off"
+                                       required>
+                                <input type="hidden" class="selected-anime-id" name="anime_id">
+                                <div class="autocomplete-dropdown"></div>
+                            </div>
                             <div class="input-group-append">
                                 <button type="submit" class="btn btn-secondary">Add Anime</button>
                             </div>
@@ -181,6 +353,29 @@
                 </li>
             {% endfor %}
         </ul>
+    </div>
+
+    <!-- Anime Detail Modal -->
+    <div id="animeModal" class="modal">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeAnimeModal()">&times;</button>
+            <div id="modalImageContainer"></div>
+            <div class="modal-info">
+                <h3 class="modal-title" id="modalTitle">Loading...</h3>
+                <div class="modal-meta">
+                    <div><strong>Rating:</strong> <span id="modalRating">N/A</span></div>
+                    <div><strong>Year:</strong> <span id="modalYear">N/A</span></div>
+                </div>
+                <div class="modal-meta">
+                    <div><strong>Type:</strong> <span id="modalType">N/A</span></div>
+                    <div><strong>Episodes:</strong> <span id="modalEpisodes">N/A</span></div>
+                </div>
+                <div class="modal-genres" id="modalGenresContainer" style="display: none;">
+                    <strong>Genres:</strong>
+                    <div id="modalGenres"></div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -217,7 +412,13 @@
             form.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const watchlistId = e.target.closest('.list-group-item').dataset.watchlistId;
-                const animeId = e.target.querySelector('input[name="anime_id"]').value;
+                const animeId = e.target.querySelector('.selected-anime-id').value;
+                
+                if (!animeId) {
+                    alert('Please select an anime from the dropdown');
+                    return;
+                }
+                
                 const response = await fetch(`/watchlists/${watchlistId}/animes`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -242,6 +443,128 @@
                     location.reload();
                 } else {
                     alert('Failed to remove anime');
+                }
+            });
+        });
+
+        async function showAnimeModal(animeId) {
+            const modal = document.getElementById('animeModal');
+            modal.style.display = 'block';
+            
+            // Reset modal content
+            document.getElementById('modalTitle').textContent = 'Loading...';
+            document.getElementById('modalImageContainer').innerHTML = '<div class="modal-image-placeholder">Loading...</div>';
+            
+            try {
+                const response = await fetch(`/api/anime/${animeId}`);
+                if (!response.ok) throw new Error('Failed to fetch anime');
+                
+                const anime = await response.json();
+                
+                // Set image
+                const imageUrl = anime.imageUrl || anime.imageurl;
+                const imageContainer = document.getElementById('modalImageContainer');
+                if (imageUrl) {
+                    imageContainer.innerHTML = `<img src="${imageUrl}" alt="${anime.title}" class="modal-image" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                              <div class="modal-image-placeholder" style="display: none;">🎬 ${anime.title}</div>`;
+                } else {
+                    imageContainer.innerHTML = `<div class="modal-image-placeholder">🎬 ${anime.title}</div>`;
+                }
+                
+                // Set basic info
+                document.getElementById('modalTitle').textContent = anime.title || 'Anime Title';
+                document.getElementById('modalRating').textContent = anime.averageRating ? `★ ${anime.averageRating.toFixed(1)}` : 'N/A';
+                document.getElementById('modalYear').textContent = anime.releaseYear || 'N/A';
+                document.getElementById('modalType').textContent = anime.type || 'N/A';
+                document.getElementById('modalEpisodes').textContent = anime.episodes || 'N/A';
+                
+                // Set genres
+                const genresContainer = document.getElementById('modalGenresContainer');
+                const modalGenres = document.getElementById('modalGenres');
+                if (anime.genres) {
+                    const genreList = typeof anime.genres === 'string' ? anime.genres.split(',') : anime.genres;
+                    modalGenres.innerHTML = genreList.map(g => `<span class="genre-tag">${g.trim()}</span>`).join('');
+                    genresContainer.style.display = 'block';
+                } else {
+                    genresContainer.style.display = 'none';
+                }
+            } catch (e) {
+                console.error('Error loading anime:', e);
+                document.getElementById('modalTitle').textContent = 'Error loading anime details';
+            }
+        }
+
+        function closeAnimeModal() {
+            document.getElementById('animeModal').style.display = 'none';
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('animeModal');
+            if (event.target === modal) {
+                modal.style.display = 'none';
+            }
+        }
+
+        // Autocomplete functionality
+        let searchTimeout;
+        document.querySelectorAll('.anime-search-input').forEach(input => {
+            const dropdown = input.nextElementSibling.nextElementSibling;
+            const hiddenInput = input.nextElementSibling;
+            
+            input.addEventListener('input', function() {
+                const query = this.value.trim();
+                
+                clearTimeout(searchTimeout);
+                
+                if (query.length < 2) {
+                    dropdown.style.display = 'none';
+                    hiddenInput.value = '';
+                    return;
+                }
+                
+                searchTimeout = setTimeout(async () => {
+                    try {
+                        const response = await fetch(`/api/anime/search?q=${encodeURIComponent(query)}`);
+                        if (!response.ok) throw new Error('Search failed');
+                        
+                        const results = await response.json();
+                        
+                        if (results.length === 0) {
+                            dropdown.innerHTML = '<div class="autocomplete-item" style="color: #999;">No anime found</div>';
+                            dropdown.style.display = 'block';
+                            return;
+                        }
+                        
+                        dropdown.innerHTML = results.map(anime => `
+                            <div class="autocomplete-item" data-anime-id="${anime.animeId}">
+                                <span class="autocomplete-item-title">${anime.title}</span>
+                                <span class="autocomplete-item-year">${anime.releaseYear || ''}</span>
+                            </div>
+                        `).join('');
+                        
+                        dropdown.style.display = 'block';
+                        
+                        // Add click handlers to dropdown items
+                        dropdown.querySelectorAll('.autocomplete-item[data-anime-id]').forEach(item => {
+                            item.addEventListener('click', function() {
+                                const animeId = this.dataset.animeId;
+                                const title = this.querySelector('.autocomplete-item-title').textContent;
+                                input.value = title;
+                                hiddenInput.value = animeId;
+                                dropdown.style.display = 'none';
+                            });
+                        });
+                    } catch (e) {
+                        console.error('Search error:', e);
+                    }
+                }, 300);
+            });
+            
+            // Close dropdown when clicking outside
+            document.addEventListener('click', function(e) {
+                if (!input.contains(e.target) && !dropdown.contains(e.target)) {
+                    dropdown.style.display = 'none';
                 }
             });
         });

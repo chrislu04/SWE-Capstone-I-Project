@@ -137,6 +137,12 @@
             margin: 2px;
             color: #495057;
         }
+        .form-control {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+        }
 
         /* Explore modal styles */
         .modal-overlay {
@@ -152,23 +158,35 @@
         .modal {
             background: #fff;
             border-radius: 10px;
-            max-width: 800px;
+            max-width: 920px;
             width: 100%;
-            display: grid;
-            grid-template-columns: 1fr 1.2fr;
-            gap: 20px;
+            display: flex;
             position: relative;
             box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            overflow: hidden;
+            max-height: 90vh;
+        }
+        .modal > img,
+        .modal > div:first-of-type {
+            width: 320px;
+            min-width: 320px;
+            background: #f5f5f5;
+            border-radius: 10px 0 0 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         .modal img {
             width: 100%;
-            height: 100%;
-            object-fit: cover;
+            height: auto;
+            max-height: 90vh;
+            object-fit: contain;
             border-radius: 10px 0 0 10px;
-            background: #f5f5f5;
         }
         .modal-content {
             padding: 20px;
+            flex: 1;
+            overflow-y: auto;
         }
         .modal-close {
             position: absolute;
@@ -374,6 +392,53 @@
         }
 
         let currentExploreAnimeId = null;
+        let exploreWatchlists = [];
+
+        async function loadExploreWatchlists() {
+            try {
+                const response = await fetch('/api/watchlists');
+                if (response.ok) {
+                    exploreWatchlists = await response.json();
+                    const select = document.getElementById('exploreWatchlistSelect');
+                    select.innerHTML = '<option value="">Select watchlist...</option>';
+                    exploreWatchlists.forEach(wl => {
+                        const option = document.createElement('option');
+                        option.value = wl.watchlistId;
+                        option.textContent = wl.name;
+                        select.appendChild(option);
+                    });
+                }
+            } catch (e) {
+                console.error('Failed to load watchlists:', e);
+            }
+        }
+
+        async function addExploreToWatchlist() {
+            const selectEl = document.getElementById('exploreWatchlistSelect');
+            const watchlistId = selectEl.value;
+            if (!watchlistId) {
+                alert('Please select a watchlist');
+                return;
+            }
+            if (!currentExploreAnimeId) {
+                alert('No anime selected');
+                return;
+            }
+            try {
+                const response = await fetch(`/watchlists/${watchlistId}/animes`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ anime_id: currentExploreAnimeId })
+                });
+                if (response.ok) {
+                    alert('Anime added to watchlist!');
+                } else {
+                    alert('Failed to add anime to watchlist');
+                }
+            } catch (e) {
+                alert('Error adding to watchlist');
+            }
+        }
 
         function openExploreModal(card) {
             const data = card.dataset;
@@ -419,6 +484,10 @@
                 closeExploreModal();
             }
         });
+
+        window.addEventListener('DOMContentLoaded', () => {
+            loadExploreWatchlists();
+        });
     </script>
 
     <div id="exploreModal" class="modal-overlay" onclick="if(event.target === this) closeExploreModal();">
@@ -437,6 +506,12 @@
                 </div>
                 <div class="modal-genres"></div>
                 <button class="btn" style="margin-top: 14px;" onclick="rateAnime(currentExploreAnimeId)">Rate This Anime</button>
+                <div style="margin-top: 10px;">
+                    <select id="exploreWatchlistSelect" class="form-control" style="display: inline-block; width: auto; padding: 8px;">
+                        <option value="">Select watchlist...</option>
+                    </select>
+                    <button class="btn" style="margin-left: 8px;" onclick="addExploreToWatchlist()">Add to Watchlist</button>
+                </div>
             </div>
         </div>
     </div>

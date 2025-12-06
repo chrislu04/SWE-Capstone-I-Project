@@ -211,6 +211,12 @@
             padding: 40px;
             color: #666;
         }
+        .form-control {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+        }
         #animeContainer {
             display: none;
         }
@@ -235,12 +241,12 @@
         }
         .modal-content {
             background-color: white;
-            margin: 5% auto;
+            margin: 3% auto;
             padding: 30px;
             border-radius: 10px;
             width: 90%;
-            max-width: 600px;
-            max-height: 80vh;
+            max-width: 750px;
+            max-height: 85vh;
             overflow-y: auto;
             box-shadow: 0 5px 20px rgba(0,0,0,0.3);
             animation: slideIn 0.3s ease;
@@ -266,15 +272,25 @@
             gap: 20px;
             margin-bottom: 20px;
         }
+        #modalImageContainer {
+            width: 220px;
+            min-width: 220px;
+            background: #f5f5f5;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
         .modal-image {
-            width: 150px;
-            height: 200px;
-            object-fit: cover;
+            width: 100%;
+            height: auto;
+            max-height: 400px;
+            object-fit: contain;
             border-radius: 8px;
         }
         .modal-image-placeholder {
-            width: 150px;
-            height: 200px;
+            width: 100%;
+            height: 310px;
             background: #e3f2fd;
             border-radius: 8px;
             display: flex;
@@ -282,7 +298,6 @@
             justify-content: center;
             color: #1976d2;
             font-size: 12px;
-            flex-shrink: 0;
         }
         .modal-info {
             flex: 1;
@@ -398,6 +413,15 @@
                 <button class="btn" onclick="openRatingPrompt()">Rate This Anime</button>
                 <button class="btn btn-secondary" onclick="closeAnimeModal()">Close</button>
             </div>
+            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e0e0e0;">
+                <label style="display: block; margin-bottom: 8px; font-weight: bold;">Add to Watchlist:</label>
+                <div style="display: flex; gap: 10px;">
+                    <select id="browseWatchlistSelect" class="form-control" style="flex: 1;">
+                        <option value="">Select watchlist...</option>
+                    </select>
+                    <button class="btn" onclick="addBrowseToWatchlist()">Add</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -407,9 +431,57 @@
         let currentOffset = 0;
         const ANIME_PER_PAGE = 60;
         let selectedAnimeForRating = null;
+        let browseWatchlists = [];
+
+        async function loadBrowseWatchlists() {
+            try {
+                const response = await fetch('/api/watchlists');
+                if (response.ok) {
+                    browseWatchlists = await response.json();
+                    const select = document.getElementById('browseWatchlistSelect');
+                    select.innerHTML = '<option value="">Select watchlist...</option>';
+                    browseWatchlists.forEach(wl => {
+                        const option = document.createElement('option');
+                        option.value = wl.watchlistId;
+                        option.textContent = wl.name;
+                        select.appendChild(option);
+                    });
+                }
+            } catch (e) {
+                console.error('Failed to load watchlists:', e);
+            }
+        }
+
+        async function addBrowseToWatchlist() {
+            const selectEl = document.getElementById('browseWatchlistSelect');
+            const watchlistId = selectEl.value;
+            if (!watchlistId) {
+                alert('Please select a watchlist');
+                return;
+            }
+            if (!selectedAnimeForRating) {
+                alert('No anime selected');
+                return;
+            }
+            try {
+                const response = await fetch(`/watchlists/${watchlistId}/animes`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ anime_id: selectedAnimeForRating })
+                });
+                if (response.ok) {
+                    alert('Anime added to watchlist!');
+                } else {
+                    alert('Failed to add anime to watchlist');
+                }
+            } catch (e) {
+                alert('Error adding to watchlist');
+            }
+        }
 
         document.addEventListener('DOMContentLoaded', function() {
             loadSections();
+            loadBrowseWatchlists();
         });
 
         function loadSections() {
