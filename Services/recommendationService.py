@@ -1,4 +1,4 @@
-from app import execute_query
+from Services.db_utils import execute_query
 
 class RecommendationService:
     def get_recommendations(self, anime_id):

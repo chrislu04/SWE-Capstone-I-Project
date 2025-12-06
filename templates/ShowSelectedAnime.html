@@ -113,7 +113,7 @@
             <div class="nav-links">
                 <a href="/home">Home</a>
                 <a href="/profile">Profile</a>
-                <a href="/watchlist">Watchlist</a>
+                <a href="/watchlists">Watchlist</a>
                 <a href="/search">Advanced Search</a>
                 <a href="/logout">Logout</a>
             </div>
@@ -124,14 +124,15 @@
         <div class="section">
             <div class="anime-details-grid">
                 <div>
-                    <img src="https://via.placeholder.com/300x450" alt="{{ anime.title }}" class="anime-image">
+                    {% set image_url = anime.imageUrl or anime.imageurl %}
+                    <img src="{{ image_url or 'https://via.placeholder.com/300x450?text=' + (anime.title or 'No+Image') }}" alt="{{ anime.title }}" class="anime-image" onerror="this.src='https://via.placeholder.com/300x450?text=No+Image'">
                 </div>
                 <div class="anime-info">
                     <h1>{{ anime.title or "Anime Title" }}</h1>
                     <p>{{ anime.synopsis or "Synopsis not available." }}</p>
                     <div class="anime-meta">
-                        <span class="rating">★ {{ anime.averageRating or 'N/A' }}</span>
-                        <span>{{ anime.releaseYear or 'N/A' }}</span>
+                        <span class="rating">★ {{ anime.averageRating or anime.averagerating or 'N/A' }}</span>
+                        <span>{{ anime.releaseYear or anime.releaseyear or 'N/A' }}</span>
                         <span>{{ anime.episodes or 'N/A' }} episodes</span>
                     </div>
                     <div class="rating-widget" style="margin-top: 20px;">

@@ -1,4 +1,4 @@
-from app import execute_query
+from Services.db_utils import execute_query
 
 class SearchService:
     def advanced_search(self, title, genre, year, rating):

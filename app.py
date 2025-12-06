@@ -7,6 +7,7 @@ import json
 
 # SQLAlchemy setup
 from models import db
+from Services.db_utils import execute_query, execute_query_one
 app = Flask(__name__)
 app.secret_key = 'aniflow_secret_key_123'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres.tjrbxmwippcvwpkclxwd:animeftw@aws-1-us-east-2.pooler.supabase.com:5432/postgres'
@@ -21,39 +22,6 @@ import os
 from sqlalchemy.orm import sessionmaker
 from models import ImportJob
 
-def execute_query(query, params=None, fetch=False):
-    """Execute raw SQL query using SQLAlchemy connection"""
-    try:
-        from sqlalchemy import text
-        # SQLAlchemy uses named parameters like :param_name, not %s
-        result = db.session.execute(text(query), params or {})
-        if fetch and query.strip().upper().startswith('SELECT'):
-            rows = result.fetchall()
-            return [dict(row._mapping) for row in rows]
-        else:
-            db.session.commit()
-            return {"status": "success", "rowcount": result.rowcount}
-    except Exception as e:
-        print(f"Query error: {e}")
-        db.session.rollback()
-        return None
-
-def execute_query_one(query, params=None):
-    """Execute SQL query and return single result"""
-    try:
-        from sqlalchemy import text
-        # SQLAlchemy uses named parameters like :param_name, not %s
-        result = db.session.execute(text(query), params or {})
-        if query.strip().upper().startswith('SELECT'):
-            row = result.fetchone()
-            return dict(row._mapping) if row else None
-        else:
-            db.session.commit()
-            return {"status": "success", "rowcount": result.rowcount}
-    except Exception as e:
-        print(f"Query error: {e}")
-        db.session.rollback()
-        return None
 
 #importing services 
 from Services.exploreService import explore_service
@@ -239,7 +207,7 @@ def show_anime(anime_id):
         if rating_result:
             user_rating = rating_result['score']
             
-    return render_template('ShowSelectedAnime.html', anime=anime, user_rating=user_rating)
+    return render_template('showSelectedAnime.html', anime=anime, user_rating=user_rating)
 
 @app.route('/search', methods=['GET', 'POST'])
 def advanced_search():
@@ -487,9 +455,12 @@ def admin_import_anime():
 
 @app.route("/onboarding", methods=["GET", "POST"])
 def onboarding():
-    #update the entire process below into a onBoardingService.py
+    if 'user_id' not in session:
+        return redirect('/login')
+    
     if request.method == "POST":
         # Process the form data
+        user_id = session['user_id']
         age = request.form.get("age")
         region = request.form.get("region")
         bio = request.form.get("bio")
@@ -497,18 +468,38 @@ def onboarding():
         studios = request.form.get("studios")
         themes = request.form.get("themes")
 
-        # For now, just return the collected data
-        #update to return to homepage
+        # Store preferences in profilePreferences table
+        try:
+            pref_data = {
+                "age": int(age) if age else None,
+                "region": region,
+                "bio": bio
+            }
+            
+            prefs_studios = [s.strip() for s in studios.split(',') if s.strip()] if studios else []
+            prefs_themes = [t.strip() for t in themes.split(',') if t.strip()] if themes else []
+            
+            result = execute_query("""
+                INSERT INTO "profilePreferences" ("userId", "demographic", "preferredGenres", "preferredStudios", "preferredThemes")
+                VALUES (:user_id, :demographic, :genres, :studios, :themes)
+                ON CONFLICT ("userId") DO UPDATE SET 
+                    "demographic" = :demographic,
+                    "preferredGenres" = :genres,
+                    "preferredStudios" = :studios,
+                    "preferredThemes" = :themes
+            """, {
+                "user_id": user_id,
+                "demographic": json.dumps(pref_data),
+                "genres": json.dumps(genres),
+                "studios": json.dumps(prefs_studios),
+                "themes": json.dumps(prefs_themes)
+            })
+        except Exception as e:
+            print(f"Error saving preferences: {e}")
         
-        # return jsonify({
-        #     "age": age,
-        #     "region": region,
-        #     "bio": bio,
-        #     "genres": genres,
-        #     "studios": studios,
-        #     "themes": themes
-        # })
-    return redirect('/home')
+        return redirect('/home')
+    
+    return render_template('onboarding.html')
 
 @app.route("/recommendations/beginner")
 def beginner_recommendations():
