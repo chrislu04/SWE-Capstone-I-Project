@@ -154,7 +154,19 @@
                             <button onclick="rateAnime()" style="padding: 10px 20px; border: none; border-radius: 5px; background: #007bff; color: white; cursor: pointer;">Rate</button>
                         {% endif %}
                     </div>
+                    <div class="flag-section" style="margin-top: 20px;">
+                        <button onclick="openFlagModal()" style="background: none; border: none; color: #007bff; cursor: pointer;">Flag incorrect data</button>
+                    </div>
                 </div>
+            </div>
+        </div>
+
+        <div id="flag-modal" class="modal" style="display:none; position:fixed; z-index:101; left:0; top:0; width:100%; height:100%; overflow:auto; background-color:rgba(0,0,0,0.4);">
+            <div class="modal-content" style="background-color:#fefefe; margin:15% auto; padding:20px; border:1px solid #888; width:80%; max-width:500px; border-radius:10px;">
+                <span class="close" onclick="closeFlagModal()" style="color:#aaa; float:right; font-size:28px; font-weight:bold; cursor:pointer;">&times;</span>
+                <h2>Flag Incorrect Data</h2>
+                <textarea id="flag-reason" placeholder="Please provide a reason for flagging this anime..." style="width:100%; height:100px; padding:10px; margin-top:10px; border-radius:5px; border:1px solid #ccc;"></textarea>
+                <button onclick="submitFlag()" style="margin-top:10px; padding:10px 20px; border:none; border-radius:5px; background:#007bff; color:white; cursor:pointer;">Submit</button>
             </div>
         </div>
 
@@ -167,6 +179,47 @@
     </div>
 
     <script>
+        function openFlagModal() {
+            document.getElementById('flag-modal').style.display = 'block';
+        }
+
+        function closeFlagModal() {
+            document.getElementById('flag-modal').style.display = 'none';
+        }
+
+        function submitFlag() {
+            const animeId = window.location.pathname.split('/')[2];
+            const reason = document.getElementById('flag-reason').value;
+
+            if (!reason) {
+                alert('Please provide a reason.');
+                return;
+            }
+
+            fetch(`/api/anime/${animeId}/flag`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    reason: reason,
+                }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert('Successfully flagged for review.');
+                    closeFlagModal();
+                } else {
+                    alert('Failed to flag: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error flagging:', error);
+                alert('An error occurred while flagging.');
+            });
+        }
+
         function rateAnime() {
             const animeId = window.location.pathname.split('/')[2];
             const score = document.getElementById('rating-score').value;

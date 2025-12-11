@@ -11,6 +11,7 @@ DROP TABLE IF EXISTS "watchlistDocuments" CASCADE;
 DROP TABLE IF EXISTS "profilePreferences" CASCADE;
 DROP TABLE IF EXISTS "importJobs" CASCADE;
 DROP TABLE IF EXISTS "users" CASCADE;
+DROP TABLE IF EXISTS "flagged_anime" CASCADE;
 
 CREATE TABLE "users" (
     "userId" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -141,6 +142,17 @@ CREATE TABLE "importJobs" (
     "payload" JSONB NOT NULL,
     "startedAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     "completedAt" TIMESTAMP WITH TIME ZONE
+);
+
+CREATE TABLE "flagged_anime" (
+    "flagId" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    "animeId" UUID NOT NULL,
+    "userId" UUID NOT NULL,
+    "reason" TEXT NOT NULL,
+    "status" VARCHAR(20) DEFAULT 'pending' CHECK ("status" IN ('pending', 'resolved', 'dismissed')),
+    "createdTime" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    FOREIGN KEY ("animeId") REFERENCES "animeCatalog"("animeId"),
+    FOREIGN KEY ("userId") REFERENCES "users"("userId")
 );
 
 CREATE INDEX idx_anime_title ON "animeCatalog"("title");

@@ -52,6 +52,7 @@ from Services.exploreService import explore_service
 from Services.searchService import SearchService
 from Services.recommendationService import RecommendationService
 from Services.watchlistService import WatchlistService
+from Services.flaggingService import flag_anime, get_flagged_anime, update_flag_status
 
 search_service = SearchService()
 watchlist_service = WatchlistService()
@@ -445,6 +446,24 @@ def get_recommendations():
     
     return jsonify(recommendations or {"recommendations": []})
 
+@app.route('/api/anime/<anime_id>/flag', methods=['POST'])
+def flag_anime_route(anime_id):
+    if 'user_id' not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    user_id = session['user_id']
+    data = request.get_json()
+    reason = data.get('reason')
+    
+    if not reason:
+        return jsonify({"error": "Reason is required"}), 400
+    
+    if flag_anime(anime_id, user_id, reason):
+        return jsonify({"status": "success", "message": "Anime flagged successfully"})
+    
+    return jsonify({"error": "Failed to flag anime"}), 500
+
+
 @app.route('/profile')
 def profile():
     if 'user_id' not in session:
@@ -478,6 +497,35 @@ def get_similar_anime(anime_id):
     """Get recommendations for a specific anime."""
     recommendations = recommendation_service.get_recommendations(anime_id)
     return jsonify(recommendations)
+    
+@app.route('/admin/flagged-anime')
+def admin_flagged_anime():
+    if 'user_id' not in session:
+        return redirect('/login')
+    
+    # Add role check for admin
+    
+    flagged_anime = get_flagged_anime()
+    return render_template('admin/flagged.html', flagged_anime=flagged_anime)
+
+@app.route('/admin/flagged-anime/<flag_id>/update', methods=['POST'])
+def admin_update_flagged_anime(flag_id):
+    if 'user_id' not in session:
+        return redirect('/login')
+    
+    # Add role check for admin
+    
+    data = request.get_json()
+    status = data.get('status')
+    
+    if status not in ['resolved', 'dismissed']:
+        return jsonify({"error": "Invalid status"}), 400
+    
+    if update_flag_status(flag_id, status):
+        return jsonify({"status": "success", "message": "Flag status updated"})
+    
+    return jsonify({"error": "Failed to update flag status"}), 500
+
 @app.route('/test-db')
 def test_db():
     try:

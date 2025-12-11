@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flagged Anime</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Flagged Anime</h1>
+        <table>
+            <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Flagged By</th>
+                    <th>Reason</th>
+                    <th>Date</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for flag in flagged_anime %}
+                <tr>
+                    <td>{{ flag[1] }}</td>
+                    <td>{{ flag[2] }}</td>
+                    <td>{{ flag[3] }}</td>
+                    <td>{{ flag[4] }}</td>
+                    <td>
+                        <button onclick="updateFlagStatus('{{ flag[0] }}', 'resolved')">Resolve</button>
+                        <button onclick="updateFlagStatus('{{ flag[0] }}', 'dismissed')">Dismiss</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <script>
+        function updateFlagStatus(flagId, status) {
+            fetch(`/admin/flagged-anime/${flagId}/update`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ status: status })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    location.reload();
+                } else {
+                    alert(data.error);
+                }
+            });
+        }
+    </script>
+</body>
+</html>
