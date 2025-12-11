@@ -186,14 +186,16 @@
             <div class="anime-row">
                 {% if results %}
                     {% for anime in results %}
-                    <div class="anime-card">
-                        <div class="anime-title">{{ anime.title }}</div>
-                        <div class="anime-synopsis">{{ anime.synopsis[:100] + '...' if anime.synopsis else '' }}</div>
-                        <div class="anime-meta">
-                            <span class="rating">★ {{ anime.popularity_score or 'N/A' }}</span>
-                            <span>{{ anime.release_year or 'N/A' }}</span>
+                    <a href="/anime/{{ anime.animeId }}" style="text-decoration: none; color: inherit;">
+                        <div class="anime-card">
+                            <div class="anime-title">{{ anime.title }}</div>
+                            <div class="anime-synopsis">{{ anime.title }}</div>
+                            <div class="anime-meta">
+                                <span class="rating">★ {{ anime.averageRating or 'N/A' }}</span>
+                                <span>{{ anime.releaseYear or 'N/A' }}</span>
+                            </div>
                         </div>
-                    </div>
+                    </a>
                     {% endfor %}
                 {% else %}
                     <div class="empty-state">

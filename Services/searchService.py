@@ -5,27 +5,27 @@ class SearchService:
         """
         Performs an advanced search for anime based on multiple criteria.
         """
-        query = "SELECT * FROM animes WHERE 1=1"
-        params = []
+        query = 'SELECT ac.*, ag.genres FROM "animeCatalog" ac LEFT JOIN "animeGenres" ag ON ac."animeId" = ag."animeId" WHERE 1=1'
+        params = {}
 
         if title:
-            query += " AND title ILIKE %s"
-            params.append(f"%{title}%")
+            query += ' AND ac.title ILIKE :title'
+            params['title'] = f"%{title}%"
         
         if year:
-            query += " AND EXTRACT(YEAR FROM aired) = %s"
-            params.append(year)
+            query += ' AND ac."releaseYear" = :year'
+            params['year'] = int(year)
         
         if rating:
-            query += " AND score >= %s"
-            params.append(rating)
+            query += ' AND ac."averageRating" >= :rating'
+            params['rating'] = float(rating)
 
         if genre:
-            query += " AND genres ILIKE %s"
-            params.append(f"%{genre}%")
+            query += ' AND ag.genres ILIKE :genre'
+            params['genre'] = f"%{genre}%"
         
         try:
-            results = execute_query(query, params)
+            results = execute_query(query, params, fetch=True)
             return results
         except Exception as e:
             print(f"Error during advanced search: {e}")
