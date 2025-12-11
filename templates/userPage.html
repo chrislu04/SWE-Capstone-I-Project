@@ -357,6 +357,60 @@
             </div>
         </div>
 
+        <!-- Your Rated Anime -->
+        <div class="section">
+            <h2 class="section-title" onclick="toggleVisibility('rated-anime-list')" style="cursor: pointer;">
+                ⭐ Your Rated Anime ({{ stats.anime_rated }}) <span class="watchlist-toggle">▼</span>
+            </h2>
+            <div id="rated-anime-list" class="anime-list-grid" style="display: none;">
+                {% if rated_anime %}
+                    {% for anime in rated_anime %}
+                        <a href="/anime/{{ anime.animeId }}" class="anime-list-card">
+                            <img src="{{ anime.imageUrl or 'https://via.placeholder.com/100x150?text=No+Image' }}" alt="{{ anime.title }}" onerror="this.src='https://via.placeholder.com/100x150?text=No+Image'">
+                            <div>
+                                <div class="anime-list-title">{{ anime.title }}</div>
+                                <div class="anime-list-rating">Your Rating: {{ anime.score }}/10</div>
+                            </div>
+                        </a>
+                    {% endfor %}
+                {% else %}
+                    <p>You haven't rated any anime yet.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Your Watchlists -->
+        <div class="section">
+            <h2 class="section-title" onclick="toggleVisibility('watchlists-container')" style="cursor: pointer;">
+                📚 Your Watchlists ({{ user_watchlists|length if user_watchlists else 0 }}) <span class="watchlist-toggle">▼</span>
+            </h2>
+            <div id="watchlists-container" style="display: none;">
+                {% if user_watchlists %}
+                    {% for watchlist in user_watchlists %}
+                        <div class="watchlist-item">
+                            <h3 onclick="toggleVisibility('watchlist-{{ watchlist.watchlistId }}')" style="cursor: pointer;">
+                                {{ watchlist.name }} ({{ watchlist.anime|length if watchlist.anime else 0 }}) <span class="watchlist-toggle">▶</span>
+                            </h3>
+                            <div id="watchlist-{{ watchlist.watchlistId }}" class="anime-list-grid" style="display: none;">
+                                {% if watchlist.anime %}
+                                    {% for anime in watchlist.anime %}
+                                        <a href="/anime/{{ anime.animeId }}" class="anime-list-card">
+                                            <img src="{{ anime.imageUrl or 'https://via.placeholder.com/100x150?text=No+Image' }}" alt="{{ anime.title }}" onerror="this.src='https://via.placeholder.com/100x150?text=No+Image'">
+                                            <div class="anime-list-title">{{ anime.title }}</div>
+                                        </a>
+                                    {% endfor %}
+                                {% else %}
+                                    <p>No anime in this watchlist.</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <p>You have no watchlists yet.</p>
+                {% endif %}
+            </div>
+        </div>
+
         <!-- Account Actions -->
         <div class="section">
             <h2 class="section-title">🔧 Account Actions</h2>
@@ -400,6 +454,73 @@
                 }
             });
         });
+
+        function toggleVisibility(id) {
+            const element = document.getElementById(id);
+            const toggleIcon = document.querySelector(`#${id}`).previousElementSibling.querySelector('.watchlist-toggle');
+            if (element.style.display === 'none') {
+                element.style.display = 'grid'; // Use grid for anime lists
+                if (toggleIcon) toggleIcon.textContent = '▼';
+            } else {
+                element.style.display = 'none';
+                if (toggleIcon) toggleIcon.textContent = '▶';
+            }
+        }
     </script>
+    <style>
+        .anime-list-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .anime-list-card {
+            display: flex;
+            align-items: center;
+            background: #fff;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 10px;
+            text-decoration: none;
+            color: inherit;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .anime-list-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .anime-list-card img {
+            width: 60px;
+            height: 90px;
+            border-radius: 5px;
+            margin-right: 10px;
+            object-fit: cover;
+        }
+        .anime-list-title {
+            font-weight: bold;
+            font-size: 14px;
+            line-height: 1.2;
+        }
+        .anime-list-rating {
+            font-size: 12px;
+            color: #888;
+            margin-top: 3px;
+        }
+        .watchlist-item {
+            margin-top: 20px;
+            padding-left: 10px;
+            border-left: 3px solid #007bff;
+        }
+        .watchlist-item h3 {
+            margin: 0;
+            padding-bottom: 5px;
+            color: #007bff;
+        }
+        .watchlist-toggle {
+            margin-left: 10px;
+            font-size: 0.8em;
+            color: #666;
+        }
+    </style>
 </body>
 </html>

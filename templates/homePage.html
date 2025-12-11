@@ -488,6 +488,47 @@
         window.addEventListener('DOMContentLoaded', () => {
             loadExploreWatchlists();
         });
+
+        function openFlagModalFromExplore() {
+            document.getElementById('flag-modal').style.display = 'flex';
+        }
+
+        function closeFlagModal() {
+            document.getElementById('flag-modal').style.display = 'none';
+        }
+
+        function submitFlag() {
+            const animeId = currentExploreAnimeId; // Use the anime ID from the explore modal
+            const reason = document.getElementById('flag-reason').value;
+
+            if (!reason) {
+                alert('Please provide a reason.');
+                return;
+            }
+
+            fetch(`/api/anime/${animeId}/flag`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    reason: reason,
+                }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert('Successfully flagged for review.');
+                    closeFlagModal();
+                } else {
+                    alert('Failed to flag: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error flagging:', error);
+                alert('An error occurred while flagging.');
+            });
+        }
     </script>
 
     <div id="exploreModal" class="modal-overlay" onclick="if(event.target === this) closeExploreModal();">
@@ -506,12 +547,25 @@
                 </div>
                 <div class="modal-genres"></div>
                 <button class="btn" style="margin-top: 14px;" onclick="rateAnime(currentExploreAnimeId)">Rate This Anime</button>
+                <button class="btn" style="margin-top: 10px; background: #dc3545;" onclick="openFlagModalFromExplore()">Flag Incorrect Data</button>
                 <div style="margin-top: 10px;">
                     <select id="exploreWatchlistSelect" class="form-control" style="display: inline-block; width: auto; padding: 8px;">
                         <option value="">Select watchlist...</option>
                     </select>
                     <button class="btn" style="margin-left: 8px;" onclick="addExploreToWatchlist()">Add to Watchlist</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Flag Modal (reusing structure from ShowSelectedAnime.html) -->
+    <div id="flag-modal" class="modal-overlay" style="display:none;" onclick="if(event.target === this) closeFlagModal();">
+        <div class="modal">
+            <button class="modal-close" onclick="closeFlagModal()">×</button>
+            <div class="modal-content">
+                <h3 class="modal-title">Flag Incorrect Data</h3>
+                <textarea id="flag-reason" placeholder="Please provide a reason for flagging this anime..." style="width:100%; height:100px; padding:10px; margin-top:10px; border-radius:5px; border:1px solid #ccc;"></textarea>
+                <button class="btn" style="margin-top:10px; padding:10px 20px; border:none; border-radius:5px; background:#007bff; color:white; cursor:pointer;" onclick="submitFlag()">Submit</button>
             </div>
         </div>
     </div>

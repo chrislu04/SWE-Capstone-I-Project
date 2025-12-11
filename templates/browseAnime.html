@@ -411,6 +411,7 @@
             </div>
             <div class="modal-buttons">
                 <button class="btn" onclick="openRatingPrompt()">Rate This Anime</button>
+                <button class="btn" style="background: #dc3545;" onclick="openFlagModalFromBrowse()">Flag Incorrect Data</button>
                 <button class="btn btn-secondary" onclick="closeAnimeModal()">Close</button>
             </div>
             <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e0e0e0;">
@@ -422,6 +423,18 @@
                     <button class="btn" onclick="addBrowseToWatchlist()">Add</button>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Flag Modal (reusing structure from ShowSelectedAnime.html) -->
+    <div id="flag-modal" class="modal" style="display:none;" onclick="if(event.target === this) closeFlagModal();">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeFlagModal()">&times;</span>
+            <div class="modal-header" style="flex-direction: column; gap: 0;">
+                <div class="modal-title" style="margin-bottom: 10px;">Flag Incorrect Data</div>
+            </div>
+            <textarea id="flag-reason" placeholder="Please provide a reason for flagging this anime..." style="width:100%; height:100px; padding:10px; margin-top:10px; border-radius:5px; border:1px solid #ccc;"></textarea>
+            <button class="btn" style="margin-top:10px; padding:10px 20px; border:none; border-radius:5px; background:#007bff; color:white; cursor:pointer;" onclick="submitFlag()">Submit</button>
         </div>
     </div>
 
@@ -708,10 +721,56 @@
 
         // Close modal when clicking outside
         window.onclick = function(event) {
-            const modal = document.getElementById('animeModal');
-            if (event.target === modal) {
-                modal.style.display = 'none';
+            const animeModal = document.getElementById('animeModal');
+            const flagModal = document.getElementById('flag-modal');
+            if (event.target === animeModal) {
+                animeModal.style.display = 'none';
             }
+            if (event.target === flagModal) {
+                flagModal.style.display = 'none';
+            }
+        }
+
+        function openFlagModalFromBrowse() {
+            closeAnimeModal(); // Close the anime detail modal first
+            document.getElementById('flag-modal').style.display = 'block';
+        }
+
+        function closeFlagModal() {
+            document.getElementById('flag-modal').style.display = 'none';
+        }
+
+        function submitFlag() {
+            const animeId = selectedAnimeForRating; // Use the anime ID from the browse modal
+            const reason = document.getElementById('flag-reason').value;
+
+            if (!reason) {
+                alert('Please provide a reason.');
+                return;
+            }
+
+            fetch(`/api/anime/${animeId}/flag`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    reason: reason,
+                }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert('Successfully flagged for review.');
+                    closeFlagModal();
+                } else {
+                    alert('Failed to flag: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error flagging:', error);
+                alert('An error occurred while flagging.');
+            });
         }
     </script>
 </body>

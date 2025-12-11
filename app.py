@@ -471,26 +471,85 @@ def profile():
 
     user_id = session['user_id']
     
-    # Fetch user data (replace with a proper service call)
+    # Fetch user data
     user = execute_query_one('SELECT * FROM "users" WHERE "userId" = :user_id', {"user_id": user_id})
     
-    # Fetch user stats (replace with a proper service call)
-    anime_rated_count = execute_query_one('SELECT COUNT(*) as count FROM "ratingSnapshots" WHERE "userId" = :user_id', {"user_id": user_id})
-    avg_rating = execute_query_one('SELECT AVG(score) as avg FROM "ratingSnapshots" WHERE "userId" = :user_id', {"user_id": user_id})
+    # Fetch rated anime details
+    rated_anime_details = execute_query(
+        """
+        SELECT rs.score, ac."animeId", ac.title, ac."imageUrl"
+        FROM "ratingSnapshots" rs
+        JOIN "animeCatalog" ac ON rs."animeId" = ac."animeId"
+        WHERE rs."userId" = :user_id
+        ORDER BY rs."createTime" DESC
+        """,
+        {"user_id": user_id},
+        fetch=True
+    )
+    
+    # Fetch user's watchlists and their anime details
+    user_watchlists = watchlist_service.get_watchlists_for_user(user_id)
+    user_watchlists_with_anime = []
+
+    for wl in user_watchlists:
+        anime_ids_in_watchlist = [item['animeId'] for item in wl.items if 'animeId' in item]
+        if anime_ids_in_watchlist:
+            # Fetch details for all anime in the current watchlist
+            # Using IN clause with a list of UUIDs
+            # Convert UUIDs to strings for the query
+            anime_ids_str = [str(uuid.UUID(aid)) for aid in anime_ids_in_watchlist]
+            
+            # Constructing a dynamic IN clause
+            # Create placeholders like :anime_id_0, :anime_id_1, etc.
+            # and map them to the actual UUID strings in the params dictionary
+            param_names = {f"anime_id_{i}": aid for i, aid in enumerate(anime_ids_str)}
+            in_clause = ", ".join([f":anime_id_{i}" for i in range(len(anime_ids_str))])
+            
+            watchlist_anime_details = execute_query(
+                f"""
+                SELECT "animeId", title, "imageUrl"
+                FROM "animeCatalog"
+                WHERE "animeId" IN ({in_clause})
+                """,
+                param_names,
+                fetch=True
+            )
+            # Ensure the order of anime in the watchlist is preserved if needed,
+            # but for now, just adding them as a list
+            user_watchlists_with_anime.append({
+                "watchlistId": str(wl.watchlistId),
+                "name": wl.name,
+                "anime": watchlist_anime_details
+            })
+        else:
+            user_watchlists_with_anime.append({
+                "watchlistId": str(wl.watchlistId),
+                "name": wl.name,
+                "anime": []
+            })
+            
+    # Fetch user stats
+    anime_rated_count = len(rated_anime_details) if rated_anime_details else 0
+    avg_rating_result = execute_query_one('SELECT AVG(score) as avg FROM "ratingSnapshots" WHERE "userId" = :user_id', {"user_id": user_id})
+    avg_rating = round(avg_rating_result['avg'], 1) if avg_rating_result and avg_rating_result['avg'] else 0.0
     reviews_written_count = execute_query_one('SELECT COUNT(*) as count FROM "userNotes" WHERE "userId" = :user_id', {"user_id": user_id})
     
-    # Fetch watchlists and calculate total items
-    watchlists = watchlist_service.get_watchlists_for_user(user_id)
-    watchlist_count = sum(len(w.items) for w in watchlists)
+    total_watchlist_anime_count = sum(len(wl['anime']) for wl in user_watchlists_with_anime)
 
     user_stats = {
-        "anime_rated": anime_rated_count['count'] if anime_rated_count else 0,
-        "avg_rating": round(avg_rating['avg'], 1) if avg_rating and avg_rating['avg'] else 0.0,
-        "watchlist_count": watchlist_count,
+        "anime_rated": anime_rated_count,
+        "avg_rating": avg_rating,
+        "watchlist_count": total_watchlist_anime_count,
         "reviews_written": reviews_written_count['count'] if reviews_written_count else 0
     }
 
-    return render_template('userPage.html', user=user, stats=user_stats)
+    return render_template(
+        'userPage.html', 
+        user=user, 
+        stats=user_stats,
+        rated_anime=rated_anime_details,
+        user_watchlists=user_watchlists_with_anime
+    )
 
 @app.route('/anime/<anime_id>/recommendations')
 def get_similar_anime(anime_id):
