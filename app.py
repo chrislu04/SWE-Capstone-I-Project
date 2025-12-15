@@ -615,6 +615,17 @@ def flag_anime_route(anime_id):
     if 'user_id' not in session:
         return jsonify({"error": "Unauthorized"}), 401
     
+    # Validate anime id
+    if not anime_id or str(anime_id).lower() == 'null':
+        return jsonify({"error": "Invalid anime id"}), 400
+
+    anime_exists = execute_query_one(
+        'SELECT 1 FROM "animeCatalog" WHERE "animeId" = :anime_id',
+        {"anime_id": anime_id}
+    )
+    if not anime_exists:
+        return jsonify({"error": "Anime not found"}), 404
+
     user_id = session['user_id']
     data = request.get_json()
     reason = data.get('reason')

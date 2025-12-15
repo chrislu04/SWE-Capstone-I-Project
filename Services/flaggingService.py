@@ -64,4 +64,6 @@ def update_flag_status(flag_id, status):
         """,
         {"status": status, "flag_id": flag_id}
     )
-    return bool(result and result.get('rowcount', 0) > 0)
+    if isinstance(result, dict):
+        return result.get('rowcount', 0) > 0
+    return bool(result)
