@@ -92,14 +92,12 @@ class TestRatingModel:
         db.session.add(rating1)
         db.session.commit()
         
-        # Update it
-        rating2 = Rating(
+        # Update existing row instead of inserting a duplicate (respects unique constraint)
+        existing = Rating.query.filter_by(
             userId=sample_user.userId,
-            animeId=sample_anime.animeId,
-            score=8,
-            createTime=datetime.now()
-        )
-        db.session.merge(rating2)
+            animeId=sample_anime.animeId
+        ).first()
+        existing.score = 8
         db.session.commit()
         
         # Verify updated

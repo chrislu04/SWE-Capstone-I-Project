@@ -1,4 +1,5 @@
 from Services.db_utils import execute_query, execute_query_one
+import uuid
 
 def flag_anime(anime_id, user_id, reason):
     """
@@ -12,12 +13,13 @@ def flag_anime(anime_id, user_id, reason):
     Returns:
         bool: True if the anime was flagged successfully, False otherwise.
     """
+    flag_id = str(uuid.uuid4())
     result = execute_query(
         """
-        INSERT INTO "flagged_anime" ("animeId", "userId", "reason")
-        VALUES (:anime_id, :user_id, :reason)
+        INSERT INTO "flagged_anime" ("flagId", "animeId", "userId", "reason")
+        VALUES (:flag_id, :anime_id, :user_id, :reason)
         """,
-        {"anime_id": anime_id, "user_id": user_id, "reason": reason}
+        {"flag_id": flag_id, "anime_id": anime_id, "user_id": user_id, "reason": reason}
     )
     return result is not None
 
@@ -62,4 +64,4 @@ def update_flag_status(flag_id, status):
         """,
         {"status": status, "flag_id": flag_id}
     )
-    return result is not None
+    return bool(result and result.get('rowcount', 0) > 0)

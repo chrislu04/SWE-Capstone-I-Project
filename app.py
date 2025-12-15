@@ -559,6 +559,14 @@ def rate_anime():
     
     if not anime_id or score is None:
         return jsonify({"error": "Missing anime_id or score"}), 400
+
+    # Ensure the anime exists
+    anime_exists = execute_query_one(
+        'SELECT 1 FROM "animeCatalog" WHERE "animeId" = :anime_id',
+        {"anime_id": anime_id}
+    )
+    if not anime_exists:
+        return jsonify({"error": "Anime not found"}), 404
     
     try:
         score_val = int(score)
