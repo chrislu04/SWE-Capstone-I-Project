@@ -5,15 +5,28 @@ import uuid
 from datetime import datetime, timedelta
 import json
 from functools import wraps
+import os
 
 # SQLAlchemy setup
 from models import db, Anime, AnimeGenre
 from Services.db_utils import execute_query, execute_query_one
+
 app = Flask(__name__)
-app.secret_key = 'aniflow_secret_key_123'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres.tjrbxmwippcvwpkclxwd:animeftw@aws-1-us-east-2.pooler.supabase.com:5432/postgres'
+app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'aniflow_secret_key_123')
+
+# Database configuration (use test DB if in test mode, else production)
+if os.environ.get('FLASK_ENV') == 'test' or os.environ.get('TESTING') == 'true':
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
+else:
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get(
+        'DATABASE_URL',
+        'postgresql://postgres.tjrbxmwippcvwpkclxwd:animeftw@aws-1-us-east-2.pooler.supabase.com:5432/postgres'
+    )
+
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app)
+
+# Seed admin user once at startup (Flask 3 removed before_first_request)
 
 # Simple cache
 cache = {}
@@ -61,22 +74,28 @@ recommendation_service = RecommendationService()
 # Kafka ==========
 class KafkaManager:
     def __init__(self):
-        self.bootstrap_servers = 'localhost:9092'
+        self.bootstrap_servers = os.environ.get('KAFKA_BOOTSTRAP_SERVERS', 'localhost:9092')
         self.producer = None
+        self.enabled = os.environ.get('KAFKA_ENABLED', 'true').lower() == 'true'
     
     def get_producer(self):
+        if not self.enabled:
+            return None
         if not self.producer:
             try:
                 self.producer = KafkaProducer(
                     bootstrap_servers=[self.bootstrap_servers],
-                    value_serializer=lambda v: json.dumps(v).encode('utf-8')
+                    value_serializer=lambda v: json.dumps(v).encode('utf-8'),
+                    request_timeout_ms=5000
                 )
             except Exception as e:
-                print(f"Kafka producer error: {e}")
+                print(f"[WARN] Kafka producer error: {e}. Continuing without Kafka.")
                 self.producer = None
         return self.producer
     
     def send_event(self, topic, event_data):
+        if not self.enabled:
+            return False
         producer = self.get_producer()
         if producer:
             try:
@@ -84,10 +103,99 @@ class KafkaManager:
                 print(f"Sent event to {topic}: {event_data.get('event_type')}")
                 return True
             except Exception as e:
-                print(f"Failed to send event: {e}")
+                print(f"[WARN] Failed to send event: {e}")
         return False
 
 kafka_manager = KafkaManager()
+# --- Roles & Admin utilities ---
+def get_user_role(user_id):
+    try:
+        row = execute_query_one('SELECT role FROM "users" WHERE "userId" = :user_id', {"user_id": user_id})
+        return row.get('role') if row else None
+    except Exception:
+        return None
+
+
+def admin_required(fn):
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        if 'user_id' not in session:
+            return redirect('/login')
+        role = get_user_role(session['user_id'])
+        if role != 'admin':
+            # JSON/API requests get 403, pages redirect home
+            if request.accept_mimetypes.best == 'application/json' or request.is_json:
+                return jsonify({"error": "Forbidden", "message": "Admin only"}), 403
+            return redirect('/home')
+        return fn(*args, **kwargs)
+    return wrapper
+
+
+def seed_admin_user():
+    """Ensure designated user is set as admin by email."""
+    if os.environ.get('FLASK_ENV') == 'test' or app.config.get('TESTING'):
+        # Skip in test mode
+        return
+    try:
+        execute_query(
+            'UPDATE "users" SET role = :role WHERE LOWER(email) = LOWER(:email) AND (role IS NULL OR role != :role)',
+            {"role": "admin", "email": "cklh3r@umsystem.edu"},
+            fetch=False,
+        )
+        print("[INFO] Seeded admin role for cklh3r@umsystem.edu")
+    except Exception as e:
+        print(f"[WARN] Could not seed admin user: {e}")
+
+# Seed admin user once at startup (Flask 3 removed before_first_request)
+# Skip in test mode to avoid DB connection errors
+if os.environ.get('FLASK_ENV') != 'test' and os.environ.get('TESTING') != 'true':
+    with app.app_context():
+        try:
+            seed_admin_user()
+        except Exception as e:
+            print(f"[WARN] Admin seeding skipped (expected in CI/test): {e}")
+
+
+@app.context_processor
+def inject_is_admin():
+    try:
+        uid = session.get('user_id')
+        role = get_user_role(uid) if uid else None
+        return {"is_admin": role == 'admin'}
+    except Exception:
+        return {"is_admin": False}
+
+
+@app.route('/admin')
+@admin_required
+def admin_dashboard():
+    # Aggregate useful stats
+    total_anime = execute_query_one('SELECT COUNT(*) AS c FROM "animeCatalog"', {})
+    total_users = execute_query_one('SELECT COUNT(*) AS c FROM "users"', {})
+    total_ratings = execute_query_one('SELECT COUNT(*) AS c FROM "ratingSnapshots"', {})
+    ratings_last7 = execute_query_one("SELECT COUNT(*) AS c FROM \"ratingSnapshots\" WHERE \"createTime\" > NOW() - INTERVAL '7 days'", {})
+    watchlists_count = execute_query_one('SELECT COUNT(*) AS c FROM "watchlistDocuments"', {})
+    flagged_pending = execute_query_one('SELECT COUNT(*) AS c FROM "flagged_anime" WHERE "status" = \'pending\'', {})
+    flagged_total = execute_query_one('SELECT COUNT(*) AS c FROM "flagged_anime"', {})
+
+    # Recent import jobs
+    try:
+        recent_imports = db.session.query(ImportJob).order_by(ImportJob.startedAt.desc()).limit(5).all()
+    except Exception:
+        recent_imports = []
+
+    stats = {
+        'anime_total': (total_anime or {}).get('c', 0),
+        'users_total': (total_users or {}).get('c', 0),
+        'ratings_total': (total_ratings or {}).get('c', 0),
+        'ratings_last7': (ratings_last7 or {}).get('c', 0),
+        'watchlists_total': (watchlists_count or {}).get('c', 0),
+        'flagged_pending': (flagged_pending or {}).get('c', 0),
+        'flagged_total': (flagged_total or {}).get('c', 0),
+    }
+
+    return render_template('admin/dashboard.html', stats=stats, recent_imports=recent_imports)
+
 
 def publish_user_rated_anime(user_id, anime_id, score):
     event = {
@@ -210,17 +318,17 @@ def home_feed():
     
     #first example of calling service for query
     # Get random anime for explore section using the service
-    explore_anime = explore_service.get_random_anime_sync(limit=12)
+    explore_anime = explore_service.get_random_anime_sync(limit=8)
     
     # Send async Kafka event for explore (optional - for background processing)
     explore_service.send_explore_request(user_id)
     
-    # Get personalized recommendations based on user preferences and ratings
-    personalized_anime = recommendation_service.get_personalized_recommendations(user_id, limit=12)
+    # Get personalized recommendations and prefill cache with a larger set (for Load More)
+    personalized_all = recommendation_service.get_personalized_recommendations(user_id, limit=60)
     
     # Create feed structure
     feed_data = {
-        'personalized_recommendations': {'recommended_anime': personalized_anime},
+        'personalized_recommendations': {'recommended_anime': (personalized_all[:12] if personalized_all else [])},
         'recent_ratings': recent_ratings,
         'sample_anime': sample_anime,
         'explore_anime': explore_anime,  # Add explore anime to feed
@@ -824,22 +932,14 @@ def api_get_recommendations(anime_id):
         return jsonify({"recommendations": [], "error": str(e)}), 500
     
 @app.route('/admin/flagged-anime')
+@admin_required
 def admin_flagged_anime():
-    if 'user_id' not in session:
-        return redirect('/login')
-    
-    # Add role check for admin
-    
     flagged_anime = get_flagged_anime()
     return render_template('admin/flagged.html', flagged_anime=flagged_anime)
 
 @app.route('/admin/flagged-anime/<flag_id>/update', methods=['POST'])
+@admin_required
 def admin_update_flagged_anime(flag_id):
-    if 'user_id' not in session:
-        return redirect('/login')
-    
-    # Add role check for admin
-    
     data = request.get_json()
     status = data.get('status')
     
@@ -867,6 +967,7 @@ def logout():
 
 # GET: Render upload form, POST: Handle upload
 @app.route('/admin/import-anime', methods=['GET', 'POST'])
+@admin_required
 def admin_import_anime():
     if request.method == 'GET':
         return render_template('importAnime.html')
@@ -1076,6 +1177,7 @@ def beginner_recommendations():
     return render_template("beginnerRecommendations.html", recommendations=recommendations)
 
 @app.route('/admin/import-status/<job_id>')
+@admin_required
 def import_status(job_id):
     try:
         from models import db
@@ -1127,7 +1229,7 @@ def get_watchlists():
             for item in watchlist.items:
                 anime_id = item.get('animeId')
                 if anime_id:
-                    anime = Anime.query.get(anime_id)
+                    anime = db.session.get(Anime, anime_id)
                     if anime:
                         # Get genres from AnimeGenre table
                         anime_genre = AnimeGenre.query.filter_by(animeId=anime_id).first()

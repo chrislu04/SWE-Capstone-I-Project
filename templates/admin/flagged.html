@@ -8,6 +8,10 @@
 </head>
 <body>
     <div class="container">
+        <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom: 12px;">
+            <a href="/admin" style="text-decoration:none; color:#007bff;">← Back to Admin Dashboard</a>
+            <a href="/home" style="text-decoration:none; color:#333;">Home</a>
+        </div>
         <h1>Flagged Anime</h1>
         <table>
             <thead>
@@ -22,13 +26,13 @@
             <tbody>
                 {% for flag in flagged_anime %}
                 <tr>
-                    <td>{{ flag[1] }}</td>
-                    <td>{{ flag[2] }}</td>
-                    <td>{{ flag[3] }}</td>
-                    <td>{{ flag[4] }}</td>
+                    <td>{{ flag.title }}</td>
+                    <td>{{ flag.username }}</td>
+                    <td>{{ flag.reason }}</td>
+                    <td>{{ flag.createdTime }}</td>
                     <td>
-                        <button onclick="updateFlagStatus('{{ flag[0] }}', 'resolved')">Resolve</button>
-                        <button onclick="updateFlagStatus('{{ flag[0] }}', 'dismissed')">Dismiss</button>
+                        <button onclick="updateFlagStatus('{{ flag.flagId }}', 'resolved')">Resolve</button>
+                        <button onclick="updateFlagStatus('{{ flag.flagId }}', 'dismissed')">Dismiss</button>
                     </td>
                 </tr>
                 {% endfor %}
@@ -37,20 +41,29 @@
     </div>
     <script>
         function updateFlagStatus(flagId, status) {
-            fetch(`/admin/flagged-anime/${flagId}/update`, {
+            const url = `/admin/flagged-anime/${flagId}/update`;
+            fetch(url, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({ status: status })
             })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Request failed (${response.status})`);
+                }
+                return response.json();
+            })
             .then(data => {
                 if (data.status === 'success') {
                     location.reload();
                 } else {
                     alert(data.error);
                 }
+            })
+            .catch(err => {
+                alert('Failed to update flag: ' + err.message);
             });
         }
     </script>

@@ -258,6 +258,7 @@
                 <a href="/watchlists">Watchlist</a>
                 <a href="/search">Search</a>
                 <a href="/recommendations/beginner">Beginner Guide</a>
+                {% if is_admin %}<a href="/admin">Admin</a>{% endif %}
             </div>
         </div>
     </div>
@@ -271,7 +272,9 @@
                 <a href="/browse" class="btn" style="margin: 0 10px;">🎭 Browse Anime</a>
                 <a href="/search" class="btn" style="margin: 0 10px;">🔍 Advanced Search</a>
                 <a href="/watchlists" class="btn" style="margin: 0 10px; background: #28a745;">📋 My Watchlists</a>
+                {% if is_admin %}
                 <a href="/admin/import-anime" class="btn" style="margin: 0 10px; background: #6c757d;">📤 Admin: Import Anime</a>
+                {% endif %}
             </div>
         </div>
 
@@ -284,6 +287,7 @@
                 <div class="anime-card" onclick="openExploreModal(this)"
                      data-id="{{ (anime.animeid or anime.animeId)|e }}"
                      data-title="{{ (anime.title or 'Anime Title')|e }}"
+                     data-image="{{ (anime.imageUrl or anime.imageurl or '')|e }}"
                      data-year="{{ (anime.releaseYear or anime.releaseyear or 'N/A')|e }}"
                      data-rating="{{ (anime.averageRating or anime.averagerating or 'N/A')|e }}"
                      data-type="{{ (anime.type or 'N/A')|e }}"
@@ -419,16 +423,17 @@
         function rateAnime(animeId) {
             const score = prompt('Rate this anime (1-10):');
             if (score && score >= 1 && score <= 10) {
-                // In real implementation: Send rating to backend
                 fetch('/api/ratings', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ anime_id: animeId, score: parseInt(score) })
                 }).then(response => {
-                    if (response.ok) {
-                        alert('Rating submitted!');
-                        location.reload();
+                    if (!response.ok) {
+                        throw new Error(`Rating failed (${response.status})`);
                     }
+                    alert('Rating submitted!');
+                }).catch(err => {
+                    alert('Failed to submit rating: ' + err.message);
                 });
             }
         }
@@ -436,8 +441,18 @@
         function editRating(animeId) {
             const newScore = prompt('Edit your rating (1-10):');
             if (newScore && newScore >= 1 && newScore <= 10) {
-                // In real implementation: Update rating
-                alert('Rating updated to: ' + newScore);
+                fetch('/api/ratings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ anime_id: animeId, score: parseInt(newScore) })
+                }).then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Rating failed (${response.status})`);
+                    }
+                    alert('Rating updated to: ' + newScore);
+                }).catch(err => {
+                    alert('Failed to update rating: ' + err.message);
+                });
             }
         }
 
@@ -562,11 +577,15 @@
         }
 
         function submitFlag() {
-            const animeId = currentExploreAnimeId; // Use the anime ID from the explore modal
+            const animeId = currentExploreAnimeId;
             const reason = document.getElementById('flag-reason').value;
 
             if (!reason) {
                 alert('Please provide a reason.');
+                return;
+            }
+            if (!animeId) {
+                alert('No anime selected to flag.');
                 return;
             }
 
@@ -579,7 +598,12 @@
                     reason: reason,
                 }),
             })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Flag failed (${response.status})`);
+                }
+                return response.json();
+            })
             .then(data => {
                 if (data.status === 'success') {
                     alert('Successfully flagged for review.');
@@ -590,7 +614,7 @@
             })
             .catch(error => {
                 console.error('Error flagging:', error);
-                alert('An error occurred while flagging.');
+                alert('An error occurred while flagging: ' + error.message);
             });
         }
 

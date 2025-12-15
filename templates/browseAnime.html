@@ -643,7 +643,8 @@
                 }).then(response => {
                     if (response.ok) {
                         alert('Rating submitted! 🎉');
-                        location.reload();
+                        // Stay on current view; optionally update local UI
+                        // e.g., add a subtle checkmark or update recent ratings asynchronously
                     } else {
                         alert('Failed to submit rating');
                     }
@@ -695,7 +696,7 @@
 
         function closeAnimeModal() {
             document.getElementById('animeModal').style.display = 'none';
-            selectedAnimeForRating = null;
+            // Preserve selectedAnimeForRating so flagging can use it
         }
 
         function openRatingPrompt() {
@@ -710,7 +711,7 @@
                     if (response.ok) {
                         alert('Rating submitted! 🎉');
                         closeAnimeModal();
-                        location.reload();
+                        // Do not reload; keep user in the current section
                     } else {
                         alert('Failed to submit rating');
                     }
@@ -736,7 +737,7 @@
         }
 
         function openFlagModalFromBrowse() {
-            closeAnimeModal(); // Close the anime detail modal first
+            closeAnimeModal(); // Close the anime detail modal first, keep selectedAnimeForRating
             document.getElementById('flag-modal').style.display = 'block';
         }
 
@@ -750,6 +751,11 @@
 
             if (!reason) {
                 alert('Please provide a reason.');
+                return;
+            }
+
+            if (!animeId) {
+                alert('No anime selected to flag. Please open an anime and try again.');
                 return;
             }
 

@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>AniFlow - Admin Dashboard</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; background: #f5f5f5; color: #333; }
+    .header { background: #fff; padding: 16px 0; box-shadow: 0 2px 5px rgba(0,0,0,0.1); position: sticky; top: 0; z-index: 100; }
+    .header-content { max-width: 1200px; margin: 0 auto; padding: 0 20px; display: flex; justify-content: space-between; align-items: center; }
+    .logo { font-size: 22px; font-weight: bold; color: #007bff; text-decoration: none; }
+    .nav a { margin-left: 16px; color: #333; text-decoration: none; }
+    .nav a:hover { color: #007bff; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+    .card { background: #fff; border: 1px solid #e0e0e0; border-radius: 10px; padding: 16px; }
+    .card h3 { margin: 0 0 8px; font-size: 16px; color: #444; }
+    .metric { font-size: 28px; font-weight: bold; color: #007bff; }
+    .section { background: #fff; border: 1px solid #e0e0e0; border-radius: 10px; padding: 16px; margin-top: 20px; }
+    .links a { display: inline-block; margin: 8px 10px 0 0; padding: 10px 14px; background: #007bff; color: #fff; border-radius: 6px; text-decoration: none; }
+    .links a.secondary { background: #6c757d; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 8px; border-bottom: 1px solid #eee; font-size: 14px; }
+    th { background: #fafafa; }
+    .status { padding: 2px 8px; border-radius: 12px; font-size: 12px; display: inline-block; }
+    .status.pending { background: #fff3cd; color: #856404; }
+    .status.running { background: #cce5ff; color: #004085; }
+    .status.completed { background: #d4edda; color: #155724; }
+    .status.failed { background: #f8d7da; color: #721c24; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-content">
+      <a href="/home" class="logo">🎌 AniFlow Admin</a>
+      <div class="nav">
+        <a href="/home">Home</a>
+        <a href="/admin/flagged-anime">Flagged Anime</a>
+        <a href="/admin/import-anime">Import Anime</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+    <h2 style="margin: 0 0 16px;">Admin Dashboard</h2>
+
+    <div class="grid">
+      <div class="card">
+        <h3>Total Anime</h3>
+        <div class="metric">{{ stats.anime_total }}</div>
+      </div>
+      <div class="card">
+        <h3>Total Users</h3>
+        <div class="metric">{{ stats.users_total }}</div>
+      </div>
+      <div class="card">
+        <h3>Total Ratings</h3>
+        <div class="metric">{{ stats.ratings_total }}</div>
+      </div>
+      <div class="card">
+        <h3>Ratings (7 days)</h3>
+        <div class="metric">{{ stats.ratings_last7 }}</div>
+      </div>
+      <div class="card">
+        <h3>Watchlists</h3>
+        <div class="metric">{{ stats.watchlists_total }}</div>
+      </div>
+      <div class="card">
+        <h3>Flagged (pending)</h3>
+        <div class="metric">{{ stats.flagged_pending }}</div>
+      </div>
+      <div class="card">
+        <h3>Flagged (total)</h3>
+        <div class="metric">{{ stats.flagged_total }}</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3 style="margin: 0 0 8px;">Quick Actions</h3>
+      <div class="links">
+        <a href="/admin/flagged-anime">Review Flagged Anime</a>
+        <a href="/admin/import-anime" class="secondary">Start Import Job</a>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3 style="margin: 0 0 8px;">Recent Import Jobs</h3>
+      {% if recent_imports and recent_imports|length > 0 %}
+      <table>
+        <thead>
+          <tr>
+            <th>Job ID</th>
+            <th>Status</th>
+            <th>Started</th>
+            <th>Finished</th>
+            <th>Processed</th>
+            <th>Created</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for job in recent_imports %}
+          <tr>
+            <td><a href="/admin/import-status/{{ job.id }}">{{ job.id }}</a></td>
+            <td><span class="status {{ (job.status or '').lower() }}">{{ job.status or 'unknown' }}</span></td>
+            <td>{{ job.startedAt or '-' }}</td>
+            <td>{{ job.finishedAt or '-' }}</td>
+            <td>{{ job.processedCount or 0 }}</td>
+            <td>{{ job.createdAt or '-' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div style="color:#666;">No recent jobs.</div>
+      {% endif %}
+    </div>
+  </div>
+</body>
+</html>

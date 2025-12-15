@@ -170,13 +170,38 @@ class RecommendationService:
     def get_personalized_recommendations(self, user_id, limit=12, offset=0):
         """
         Get personalized recommendations for a user based on:
-        1. User's preferred genres from profilePreferences
-        2. Genres from highly-rated anime (score >= 7)
-        3. Exclude already rated anime
+        1. Check recommendation cache first (within last 24 hours)
+        2. User's preferred genres from profilePreferences
+        3. Genres from highly-rated anime (score >= 7)
+        4. Exclude already rated anime
         """
         try:
             user_id = str(user_id)
             print(f"[DEBUG] get_personalized_recommendations called for user_id: {user_id} (limit={limit}, offset={offset})")
+            
+            # Try to get from cache first (if cache is less than 24 hours old)
+            cache_query = """
+                SELECT "payload" FROM "recommendationCache" 
+                WHERE "userId" = :user_id 
+                AND "updatedAt" > NOW() - INTERVAL '24 hours'
+            """
+            cache_result = execute_query(cache_query, {"user_id": user_id}, fetch=True)
+            
+            if cache_result and cache_result[0].get('payload'):
+                import json
+                cached_payload = cache_result[0]['payload']
+                if isinstance(cached_payload, str):
+                    cached_payload = json.loads(cached_payload)
+                
+                cached_anime = cached_payload if isinstance(cached_payload, list) else cached_payload.get('recommended_anime', [])
+                print(f"[DEBUG] Using cached recommendations ({len(cached_anime)} anime)")
+                
+                # Apply offset and limit to cached results; if insufficient, fall through to recompute
+                window = cached_anime[offset:offset + limit]
+                if window and len(window) > 0:
+                    return window
+                else:
+                    print(f"[DEBUG] Cache window empty for offset={offset}, limit={limit}; recomputing recommendations")
             
             # Get user's preferred genres from profilePreferences
             prefs_query = 'SELECT "preferredGenres" FROM "profilePreferences" WHERE "userId" = :user_id'
@@ -274,6 +299,57 @@ class RecommendationService:
                 for rec in recommendations[:3]:
                     matching_count = rec.get('matching_genre_count', 0)
                     print(f"  - {rec.get('title')} ({matching_count} matching genres)")
+                
+                # Cache the recommendations for future use
+                import json
+                import uuid
+                from decimal import Decimal
+                from datetime import datetime, date
+
+                def _sanitize_for_json(obj):
+                    if isinstance(obj, dict):
+                        return {k: _sanitize_for_json(v) for k, v in obj.items()}
+                    if isinstance(obj, (list, tuple)):
+                        return [_sanitize_for_json(v) for v in obj]
+                    if isinstance(obj, uuid.UUID):
+                        return str(obj)
+                    if isinstance(obj, Decimal):
+                        try:
+                            return float(obj)
+                        except Exception:
+                            return str(obj)
+                    if isinstance(obj, (datetime, date)):
+                        return obj.isoformat()
+                    return obj
+
+                try:
+                    cache_update_query = """
+                        INSERT INTO "recommendationCache" ("userId", "payload", "sourceMetadata", "confidenceScore")
+                        VALUES (:user_id, :payload, :metadata, :confidence)
+                        ON CONFLICT ("userId") DO UPDATE
+                        SET "payload" = :payload, "updatedAt" = NOW()
+                    """
+                    metadata = {
+                        "genres_count": len(all_genres) if all_genres else 0,
+                        "rating_based": True,
+                        "result_count": result_count
+                    }
+                    sanitized_payload = _sanitize_for_json(recommendations)
+                    result = execute_query(
+                        cache_update_query,
+                        {
+                            "user_id": user_id,
+                            "payload": json.dumps(sanitized_payload, ensure_ascii=False),
+                            "metadata": json.dumps(metadata),
+                            "confidence": 0.8
+                        },
+                        fetch=False
+                    )
+                    print(f"[DEBUG] Cached {result_count} recommendations for user {user_id}")
+                except Exception as cache_err:
+                    print(f"[WARNING] Failed to cache recommendations: {cache_err}")
+                    import traceback
+                    traceback.print_exc()
             
             return recommendations or []
             

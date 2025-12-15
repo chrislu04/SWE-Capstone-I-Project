@@ -105,11 +105,16 @@
                 <a href="/profile">Profile</a>
                 <a href="/watchlists">Watchlist</a>
                 <a href="/search">Search</a>
+                <a href="/admin">Admin</a>
             </div>
         </div>
     </div>
     <div class="container">
         <div class="section">
+            <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom: 12px;">
+                <a href="/admin" style="text-decoration:none; color:#007bff;">← Back to Admin Dashboard</a>
+                <span style="color:#666;">CSV import for catalog</span>
+            </div>
             <h2 class="section-title">Import Anime Data</h2>
 
         <form id="uploadForm" action="/admin/import-anime" method="post" enctype="multipart/form-data">

@@ -156,6 +156,22 @@
         }
         .watchlist-header h2 {
             margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .toggle-btn {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 6px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            min-width: 30px;
+        }
+        .toggle-btn:hover {
+            background: #5a6268;
         }
         /* Modal styles */
         .modal {
@@ -322,6 +338,7 @@
                 <a href="/profile">Profile</a>
                 <a href="/watchlists">Watchlist</a>
                 <a href="/search">Search</a>
+                {% if is_admin %}<a href="/admin">Admin</a>{% endif %}
             </div>
         </div>
     </div>
@@ -342,10 +359,13 @@
             {% for watchlist in watchlists %}
                 <li class="list-group-item" data-watchlist-id="{{ watchlist.watchlistId }}">
                     <div class="watchlist-header">
-                        <h2>{{ watchlist.name }}</h2>
+                        <h2>
+                            <button class="toggle-btn" onclick="toggleWatchlist(event, '{{ watchlist.watchlistId }}')"><span id="toggle-icon-{{ watchlist.watchlistId }}">▼</span></button>
+                            {{ watchlist.name }}
+                        </h2>
                         <button class="btn btn-danger btn-sm delete-watchlist">Delete Watchlist</button>
                     </div>
-                    <ul class="list-group">
+                    <ul class="list-group" id="watchlist-items-{{ watchlist.watchlistId }}">
                         {% for item in watchlist.items %}
                             <li class="list-group-item d-flex justify-content-between align-items-center" onclick="openWatchlistAnimeModal(this)" style="cursor: pointer;"
                                 data-id="{{ item.animeId }}" 
@@ -368,7 +388,7 @@
                             </li>
                         {% endfor %}
                     </ul>
-                    <form class="add-anime-form mt-3">
+                    <form class="add-anime-form mt-3" id="add-form-{{ watchlist.watchlistId }}">
                         <div class="input-group">
                             <div class="autocomplete-container">
                                 <input type="text" 
@@ -666,6 +686,46 @@
                 modal.style.display = 'none';
             }
         }
+
+        // Minimize/expand watchlists with persisted state
+        function toggleWatchlist(e, watchlistId) {
+            e.stopPropagation();
+            const itemsEl = document.getElementById(`watchlist-items-${watchlistId}`);
+            const addForm = document.getElementById(`add-form-${watchlistId}`);
+            const icon = document.getElementById(`toggle-icon-${watchlistId}`);
+            const key = `wl_min_${watchlistId}`;
+            const isHidden = itemsEl.style.display === 'none';
+            if (isHidden) {
+                itemsEl.style.display = '';
+                if (addForm) addForm.style.display = '';
+                if (icon) icon.textContent = '▼';
+                localStorage.setItem(key, 'open');
+            } else {
+                itemsEl.style.display = 'none';
+                if (addForm) addForm.style.display = 'none';
+                if (icon) icon.textContent = '▲';
+                localStorage.setItem(key, 'closed');
+            }
+        }
+
+        // Initialize collapsed state on load
+        window.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('li.list-group-item[data-watchlist-id]').forEach(li => {
+                const wlId = li.getAttribute('data-watchlist-id');
+                const key = `wl_min_${wlId}`;
+                const state = localStorage.getItem(key);
+                const itemsEl = document.getElementById(`watchlist-items-${wlId}`);
+                const addForm = document.getElementById(`add-form-${wlId}`);
+                const icon = document.getElementById(`toggle-icon-${wlId}`);
+                if (state === 'closed') {
+                    if (itemsEl) itemsEl.style.display = 'none';
+                    if (addForm) addForm.style.display = 'none';
+                    if (icon) icon.textContent = '▲';
+                } else {
+                    if (icon) icon.textContent = '▼';
+                }
+            });
+        });
 
         // Autocomplete functionality
         let searchTimeout;
