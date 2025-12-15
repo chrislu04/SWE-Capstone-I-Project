@@ -382,7 +382,7 @@ def show_anime(anime_id):
         if rating_result:
             user_rating = rating_result['score']
             
-    return render_template('showSelectedAnime.html', anime=anime, user_rating=user_rating)
+    return render_template('ShowSelectedAnime.html', anime=anime, user_rating=user_rating)
 
 @app.route('/search', methods=['GET', 'POST'])
 def advanced_search():
