@@ -7,7 +7,13 @@ import uuid
 from sqlalchemy import JSON, String
 
 def _is_test_env():
-    return os.environ.get('FLASK_ENV') == 'test' or os.environ.get('TESTING') == 'true'
+    env = os.environ.get('FLASK_ENV', '').lower()
+    testing = os.environ.get('TESTING', '').lower()
+    return env == 'test' or testing == 'true'
+
+def _uuid_default():
+    # In SQLite/test mode use string UUIDs to avoid binding errors
+    return str(uuid.uuid4()) if _is_test_env() else uuid.uuid4()
 
 try:
     if _is_test_env():
@@ -31,7 +37,7 @@ db = SQLAlchemy()
 
 class User(db.Model):
     __tablename__ = 'users'
-    userId = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    userId = db.Column(UUID(as_uuid=True), primary_key=True, default=_uuid_default)
     username = db.Column(db.String(50), unique=True, nullable=False)
     email = db.Column(db.String(255), unique=True, nullable=False)
     passwordHash = db.Column(db.String(255), nullable=False)
@@ -55,7 +61,7 @@ class ProfilePreference(db.Model):
 
 class Anime(db.Model):
     __tablename__ = 'animeCatalog'
-    animeId = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    animeId = db.Column(UUID(as_uuid=True), primary_key=True, default=_uuid_default)
     title = db.Column(db.String(255), nullable=False, index=True)
     alternativeTitle = db.Column(db.String(255))
     type = db.Column(db.String(50))  # MOVIE, TV, OVA, etc.
@@ -73,13 +79,13 @@ class Anime(db.Model):
 
 class AnimeGenre(db.Model):
     __tablename__ = 'animeGenres'
-    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=_uuid_default)
     animeId = db.Column(UUID(as_uuid=True), nullable=False, unique=True, index=True)
     genres = db.Column(db.Text, nullable=False)
 
 class Rating(db.Model):
     __tablename__ = 'ratingSnapshots'
-    ratingId = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    ratingId = db.Column(UUID(as_uuid=True), primary_key=True, default=_uuid_default)
     userId = db.Column(UUID(as_uuid=True), nullable=False)
     animeId = db.Column(UUID(as_uuid=True), nullable=False)
     score = db.Column(db.SmallInteger, nullable=False)
@@ -93,7 +99,7 @@ class Rating(db.Model):
 
 class RatingHistory(db.Model):
     __tablename__ = 'ratingHistory'
-    historyId = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    historyId = db.Column(UUID(as_uuid=True), primary_key=True, default=_uuid_default)
     ratingId = db.Column(UUID(as_uuid=True), nullable=False)
     userId = db.Column(UUID(as_uuid=True))
     animeId = db.Column(UUID(as_uuid=True))
@@ -102,7 +108,7 @@ class RatingHistory(db.Model):
 
 class Watchlist(db.Model):
     __tablename__ = 'watchlistDocuments'
-    watchlistId = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    watchlistId = db.Column(UUID(as_uuid=True), primary_key=True, default=_uuid_default)
     userId = db.Column(UUID(as_uuid=True), nullable=False)
     name = db.Column(db.String(100), nullable=False)
     items = db.Column(JSONB, nullable=False)
@@ -112,7 +118,7 @@ class Watchlist(db.Model):
 
 class UserNote(db.Model):
     __tablename__ = 'userNotes'
-    noteId = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    noteId = db.Column(UUID(as_uuid=True), primary_key=True, default=_uuid_default)
     userId = db.Column(UUID(as_uuid=True), nullable=False)
     animeId = db.Column(UUID(as_uuid=True), nullable=False)
     noteText = db.Column(db.Text)
@@ -123,7 +129,7 @@ class UserNote(db.Model):
 
 class RecommendationCache(db.Model):
     __tablename__ = 'recommendationCache'
-    cacheId = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    cacheId = db.Column(UUID(as_uuid=True), primary_key=True, default=_uuid_default)
     userId = db.Column(UUID(as_uuid=True), unique=True, nullable=False)
     payload = db.Column(JSONB, nullable=False)
     sourceMetadata = db.Column(JSONB)
@@ -132,7 +138,7 @@ class RecommendationCache(db.Model):
 
 class RecommendationAudit(db.Model):
     __tablename__ = 'recommendationAudit'
-    auditId = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    auditId = db.Column(UUID(as_uuid=True), primary_key=True, default=_uuid_default)
     userId = db.Column(UUID(as_uuid=True), nullable=False)
     recommendationSnapshot = db.Column(JSONB, nullable=False)
     generatedBy = db.Column(db.String(50))
@@ -140,7 +146,7 @@ class RecommendationAudit(db.Model):
 
 class RatingEventsLog(db.Model):
     __tablename__ = 'ratingEventsLog'
-    eventId = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    eventId = db.Column(UUID(as_uuid=True), primary_key=True, default=_uuid_default)
     userId = db.Column(UUID(as_uuid=True))
     animeId = db.Column(UUID(as_uuid=True))
     score = db.Column(db.SmallInteger, nullable=False)
@@ -153,7 +159,7 @@ class RatingEventsLog(db.Model):
 
 class SearchEventsLog(db.Model):
     __tablename__ = 'searchEventsLog'
-    eventId = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    eventId = db.Column(UUID(as_uuid=True), primary_key=True, default=_uuid_default)
     userId = db.Column(UUID(as_uuid=True))
     searchQuery = db.Column(db.Text)
     filters = db.Column(JSONB)
@@ -162,11 +168,21 @@ class SearchEventsLog(db.Model):
 
 class ImportJob(db.Model):
     __tablename__ = 'importJobs'
-    jobId = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    jobId = db.Column(UUID(as_uuid=True), primary_key=True, default=_uuid_default)
     adminUserId = db.Column(UUID(as_uuid=True))
     adminUsername = db.Column(db.String(50))
     status = db.Column(db.String(20), default='pending')
     payload = db.Column(JSONB, nullable=False)
     startedAt = db.Column(db.DateTime(timezone=True), server_default=db.func.now())
     completedAt = db.Column(db.DateTime(timezone=True))
+
+
+class FlaggedAnime(db.Model):
+    __tablename__ = 'flagged_anime'
+    flagId = db.Column(UUID(as_uuid=True), primary_key=True, default=_uuid_default)
+    animeId = db.Column(UUID(as_uuid=True), nullable=False)
+    userId = db.Column(UUID(as_uuid=True), nullable=False)
+    reason = db.Column(db.Text, nullable=False)
+    status = db.Column(db.String(20), default='pending')
+    createdTime = db.Column(db.DateTime(timezone=True), server_default=db.func.now())
 

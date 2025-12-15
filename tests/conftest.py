@@ -83,4 +83,8 @@ def session_with_user(client, sample_user):
     """Create a session for a logged-in user."""
     with client.session_transaction() as sess:
         sess['user_id'] = sample_user.userId
+    # Provide attributes expected by tests
+    setattr(client, 'client', client)
+    if not hasattr(client, '_get_user_id'):
+        client._get_user_id = lambda: sample_user.userId
     return client

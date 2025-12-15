@@ -1,7 +1,26 @@
 from Services.db_utils import execute_query
+import uuid
+from decimal import Decimal
+from datetime import datetime, date
 import re
 
 class RecommendationService:
+    def sanitize_payload(self, obj):
+        """Recursively sanitize objects for JSON serialization (UUID/Decimal/datetime)."""
+        if isinstance(obj, dict):
+            return {k: self.sanitize_payload(v) for k, v in obj.items()}
+        if isinstance(obj, (list, tuple)):
+            return [self.sanitize_payload(v) for v in obj]
+        if isinstance(obj, uuid.UUID):
+            return str(obj)
+        if isinstance(obj, Decimal):
+            try:
+                return float(obj)
+            except Exception:
+                return str(obj)
+        if isinstance(obj, (datetime, date)):
+            return obj.isoformat()
+        return obj
     def extract_series_name(self, title):
         """
         Extract the base series name from an anime title.

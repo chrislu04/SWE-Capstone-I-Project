@@ -52,6 +52,8 @@ def update_flag_status(flag_id, status):
     Returns:
         bool: True if the status was updated successfully, False otherwise.
     """
+    if status not in ['resolved', 'dismissed', 'pending']:
+        return False
     result = execute_query(
         """
         UPDATE "flagged_anime"
