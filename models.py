@@ -1,7 +1,30 @@
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy import CheckConstraint, UniqueConstraint
+import os
 import uuid
+
+# Dialect-agnostic types: map to PostgreSQL types in prod and portable types in tests/SQLite
+from sqlalchemy import JSON, String
+
+def _is_test_env():
+    return os.environ.get('FLASK_ENV') == 'test' or os.environ.get('TESTING') == 'true'
+
+try:
+    if _is_test_env():
+        # SQLite-safe fallbacks
+        def UUID(**kwargs):
+            return String(36)
+        JSONB = JSON
+    else:
+        from sqlalchemy.dialects.postgresql import UUID as PGUUID, JSONB as PGJSONB
+        def UUID(**kwargs):
+            return PGUUID(**kwargs)
+        JSONB = PGJSONB
+except Exception:
+    # Safe default for environments without PG dialect
+    def UUID(**kwargs):
+        return String(36)
+    JSONB = JSON
 
 # Initialize SQLAlchemy (app must call db.init_app(app))
 db = SQLAlchemy()

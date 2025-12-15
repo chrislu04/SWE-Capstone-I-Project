@@ -14,7 +14,7 @@ os.environ['KAFKA_ENABLED'] = 'false'
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from app import app, db
-from models import User, Anime, AnimeGenre, RatingSnapshot
+from models import User, Anime, AnimeGenre, Rating
 
 
 @pytest.fixture
@@ -67,7 +67,6 @@ def sample_anime(app_context):
     anime = Anime(
         animeId=anime_id,
         title='Test Anime',
-        synopsis='A test anime',
         type='TV',
         episodes=12,
         releaseYear=2023,

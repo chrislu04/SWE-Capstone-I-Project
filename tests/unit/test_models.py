@@ -2,7 +2,7 @@
 import pytest
 from uuid import uuid4
 from datetime import datetime
-from models import User, Anime, AnimeGenre, RatingSnapshot, FlaggedAnime
+from models import User, Anime, AnimeGenre, Rating
 
 
 class TestUserModel:
@@ -40,7 +40,6 @@ class TestAnimeModel:
         anime = Anime(
             animeId=anime_id,
             title='Test Anime',
-            synopsis='Test synopsis',
             type='TV',
             episodes=12,
             releaseYear=2023,
@@ -56,14 +55,14 @@ class TestAnimeModel:
         assert retrieved.episodes == 12
 
 
-class TestRatingSnapshot:
-    """Tests for RatingSnapshot model."""
+class TestRatingModel:
+    """Tests for Rating model."""
     
     def test_rating_creation(self, app_context, sample_user, sample_anime):
         """Test creating a rating."""
         from models import db
         
-        rating = RatingSnapshot(
+        rating = Rating(
             userId=sample_user.userId,
             animeId=sample_anime.animeId,
             score=7,
@@ -72,7 +71,7 @@ class TestRatingSnapshot:
         db.session.add(rating)
         db.session.commit()
         
-        retrieved = RatingSnapshot.query.filter_by(
+        retrieved = Rating.query.filter_by(
             userId=sample_user.userId,
             animeId=sample_anime.animeId
         ).first()
@@ -84,7 +83,7 @@ class TestRatingSnapshot:
         from models import db
         
         # Create initial rating
-        rating1 = RatingSnapshot(
+        rating1 = Rating(
             userId=sample_user.userId,
             animeId=sample_anime.animeId,
             score=5,
@@ -94,7 +93,7 @@ class TestRatingSnapshot:
         db.session.commit()
         
         # Update it
-        rating2 = RatingSnapshot(
+        rating2 = Rating(
             userId=sample_user.userId,
             animeId=sample_anime.animeId,
             score=8,
@@ -104,56 +103,9 @@ class TestRatingSnapshot:
         db.session.commit()
         
         # Verify updated
-        retrieved = RatingSnapshot.query.filter_by(
+        retrieved = Rating.query.filter_by(
             userId=sample_user.userId,
             animeId=sample_anime.animeId
         ).first()
         assert retrieved.score == 8
 
-
-class TestFlaggedAnimeModel:
-    """Tests for FlaggedAnime model."""
-    
-    def test_flag_creation(self, app_context, sample_user, sample_anime):
-        """Test creating a flagged anime record."""
-        from models import db, FlaggedAnime
-        
-        flag = FlaggedAnime(
-            flagId=str(uuid4()),
-            animeId=sample_anime.animeId,
-            userId=sample_user.userId,
-            reason='Title is incorrect',
-            status='pending',
-            createdTime=datetime.now()
-        )
-        db.session.add(flag)
-        db.session.commit()
-        
-        retrieved = FlaggedAnime.query.filter_by(status='pending').first()
-        assert retrieved is not None
-        assert retrieved.reason == 'Title is incorrect'
-    
-    def test_flag_status_update(self, app_context, sample_user, sample_anime):
-        """Test updating flag status."""
-        from models import db, FlaggedAnime
-        
-        flag_id = str(uuid4())
-        flag = FlaggedAnime(
-            flagId=flag_id,
-            animeId=sample_anime.animeId,
-            userId=sample_user.userId,
-            reason='Bad data',
-            status='pending',
-            createdTime=datetime.now()
-        )
-        db.session.add(flag)
-        db.session.commit()
-        
-        # Update status
-        retrieved = FlaggedAnime.query.filter_by(flagId=flag_id).first()
-        retrieved.status = 'resolved'
-        db.session.commit()
-        
-        # Verify
-        final = FlaggedAnime.query.filter_by(flagId=flag_id).first()
-        assert final.status == 'resolved'

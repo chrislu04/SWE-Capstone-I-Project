@@ -1361,9 +1361,11 @@ def search_anime():
 
 # start
 print("Starting AniFlow")
-start_recommendation_consumer()
-#consumer for home page explorer
-explore_service.start_explore_consumer()
+# Start Kafka consumers only when enabled
+if os.environ.get('KAFKA_ENABLED', 'true').lower() == 'true':
+    start_recommendation_consumer()
+    # consumer for home page explorer
+    explore_service.start_explore_consumer()
 
 if __name__ == '__main__':
     print("Flask running on http://localhost:5000")
