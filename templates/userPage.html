@@ -206,7 +206,6 @@
                 <a href="/profile" style="color: #007bff; font-weight: bold;">Profile</a>
                 <a href="/watchlists">Watchlist</a>
                 <a href="/search">Search</a>
-                <a href="/logout">Logout</a>
             </div>
         </div>
     </div>
@@ -226,7 +225,7 @@
         <div class="section">
             <h2 class="section-title">
                 📝 Account Information
-                <a href="/edit-account" class="btn" style="font-size: 12px; padding: 8px 15px;">Edit</a>
+                <a href="/edit-profile" class="btn" style="font-size: 12px; padding: 8px 15px;">Edit</a>
             </h2>
             <div class="info-grid">
                 <div class="info-label">Username:</div>
@@ -257,21 +256,21 @@
                 👤 Demographic Information
                 <a href="/edit-demographic" class="btn" style="font-size: 12px; padding: 8px 15px;">Edit</a>
             </h2>
-            {% if user.demographic %}
+            {% if user_demographic %}
             <div class="info-grid">
-                {% if user.demographic.age %}
+                {% if user_demographic.age %}
                 <div class="info-label">Age:</div>
-                <div class="info-value">{{ user.demographic.age }} years old</div>
+                <div class="info-value">{{ user_demographic.age }} years old</div>
                 {% endif %}
                 
-                {% if user.demographic.region %}
+                {% if user_demographic.region %}
                 <div class="info-label">Region:</div>
-                <div class="info-value">{{ user.demographic.region }}</div>
+                <div class="info-value">{{ user_demographic.region }}</div>
                 {% endif %}
                 
-                {% if user.demographic.bio %}
+                {% if user_demographic.bio %}
                 <div class="info-label">Bio:</div>
-                <div class="info-value" style="grid-column: 2; line-height: 1.5;">{{ user.demographic.bio }}</div>
+                <div class="info-value" style="grid-column: 2; line-height: 1.5;">{{ user_demographic.bio }}</div>
                 {% endif %}
             </div>
             {% else %}
@@ -294,8 +293,8 @@
                 <div class="preference-category">
                     <div class="category-title">🎭 Preferred Genres</div>
                     <div class="tag-list">
-                        {% if user.preferred_genres and user.preferred_genres|length > 0 %}
-                            {% for genre in user.preferred_genres %}
+                        {% if user_preferred_genres and user_preferred_genres|length > 0 %}
+                            {% for genre in user_preferred_genres %}
                                 <span class="tag">{{ genre }}</span>
                             {% endfor %}
                         {% else %}
@@ -308,8 +307,8 @@
                 <div class="preference-category">
                     <div class="category-title">🎬 Preferred Studios</div>
                     <div class="tag-list">
-                        {% if user.preferred_studios and user.preferred_studios|length > 0 %}
-                            {% for studio in user.preferred_studios %}
+                        {% if user_preferred_studios and user_preferred_studios|length > 0 %}
+                            {% for studio in user_preferred_studios %}
                                 <span class="tag">{{ studio }}</span>
                             {% endfor %}
                         {% else %}
@@ -322,8 +321,8 @@
                 <div class="preference-category">
                     <div class="category-title">🎨 Preferred Themes</div>
                     <div class="tag-list">
-                        {% if user.preferred_themes and user.preferred_themes|length > 0 %}
-                            {% for theme in user.preferred_themes %}
+                        {% if user_preferred_themes and user_preferred_themes|length > 0 %}
+                            {% for theme in user_preferred_themes %}
                                 <span class="tag">{{ theme }}</span>
                             {% endfor %}
                         {% else %}
@@ -418,6 +417,7 @@
                 <a href="/export-data" class="btn" style="background: #6c757d;">📤 Export Data</a>
                 <a href="/privacy-settings" class="btn" style="background: #17a2b8;">🔒 Privacy Settings</a>
                 <a href="/delete-account" class="btn" style="background: #dc3545;">🗑️ Delete Account</a>
+                <a href="/logout" class="btn" style="background: #dc3545;">🚪 Logout</a>
             </div>
         </div>
     </div>

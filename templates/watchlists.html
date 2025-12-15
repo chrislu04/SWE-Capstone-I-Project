@@ -32,6 +32,15 @@
             color: #007bff;
             text-decoration: none;
         }
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 12px;
+        }
+        .modal-actions .btn {
+            flex: 1;
+            text-align: center;
+        }
         .nav-links a {
             margin-left: 20px;
             text-decoration: none;
@@ -289,6 +298,19 @@
             color: #666;
             margin-left: 8px;
         }
+        .anime-item-thumbnail {
+            width: 50px;
+            height: 70px;
+            margin-right: 15px;
+            border-radius: 4px;
+            object-fit: cover;
+            background: #f0f0f0;
+        }
+        .anime-item-content {
+            display: flex;
+            align-items: center;
+            flex: 1;
+        }
     </style>
 </head>
 <body>
@@ -300,7 +322,6 @@
                 <a href="/profile">Profile</a>
                 <a href="/watchlists">Watchlist</a>
                 <a href="/search">Search</a>
-                <a href="/logout">Logout</a>
             </div>
         </div>
     </div>
@@ -326,10 +347,23 @@
                     </div>
                     <ul class="list-group">
                         {% for item in watchlist.items %}
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                <span class="anime-item-title" onclick="showAnimeModal('{{ item.animeId }}')">
-                                    {{ item.title }}
-                                </span>
+                            <li class="list-group-item d-flex justify-content-between align-items-center" onclick="openWatchlistAnimeModal(this)" style="cursor: pointer;"
+                                data-id="{{ item.animeId }}" 
+                                data-title="{{ item.title }}"
+                                data-image="{{ item.imageUrl or item.imageurl or '' }}"
+                                data-rating="{{ item.averageRating or '' }}"
+                                data-year="{{ item.releaseYear or '' }}"
+                                data-type="{{ item.type or '' }}"
+                                data-episodes="{{ item.episodes or '' }}"
+                                data-genres="{{ item.genres or '' }}">
+                                <div class="anime-item-content">
+                                    {% if item.imageUrl or item.imageurl %}
+                                        <img src="{{ item.imageUrl or item.imageurl }}" alt="{{ item.title }}" class="anime-item-thumbnail" onerror="this.style.display='none';">
+                                    {% endif %}
+                                    <span class="anime-item-title" style="cursor: pointer;">
+                                        {{ item.title }}
+                                    </span>
+                                </div>
                                 <button class="btn btn-danger btn-sm remove-anime" data-anime-id="{{ item.animeId }}" onclick="event.stopPropagation();">Remove</button>
                             </li>
                         {% endfor %}
@@ -354,6 +388,7 @@
             {% endfor %}
         </ul>
     </div>
+    </div>
 
     <!-- Anime Detail Modal -->
     <div id="animeModal" class="modal">
@@ -374,11 +409,144 @@
                     <strong>Genres:</strong>
                     <div id="modalGenres"></div>
                 </div>
+                <div class="modal-actions">
+                    <button class="btn" onclick="openRatingPrompt()">Rate This Anime</button>
+                    <button class="btn" style="background: #28a745;" onclick="goToSimilarFromWatchlist()">More Like This</button>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
+        let watchlistSelectedAnimeId = null;
+        
+        function openWatchlistAnimeModal(element) {
+            try {
+                console.log('[DEBUG] openWatchlistAnimeModal called with element');
+                console.log('[DEBUG] element.dataset:', element.dataset);
+                
+                const data = element.dataset;
+                
+                if (!data.id) {
+                    console.error('[ERROR] No anime ID found in dataset');
+                    console.log('[DEBUG] Available data keys:', Object.keys(data));
+                    console.log('[DEBUG] Full dataset:', data);
+                    alert('Error: No anime ID found');
+                    return;
+                }
+                
+                watchlistSelectedAnimeId = data.id;
+                console.log('[DEBUG] Set watchlistSelectedAnimeId to:', watchlistSelectedAnimeId);
+                console.log('[DEBUG] Type:', typeof watchlistSelectedAnimeId);
+                
+                const modal = document.getElementById('animeModal');
+                if (!modal) {
+                    console.error('[ERROR] Modal element not found');
+                    return;
+                }
+                
+                // Set image
+                const imageContainer = document.getElementById('modalImageContainer');
+                if (!imageContainer) {
+                    console.error('[ERROR] Image container not found');
+                    return;
+                }
+                
+                if (data.image) {
+                    imageContainer.innerHTML = `<img src="${data.image}" alt="${data.title || 'Anime'}" class="modal-image" onerror="this.style.display='none';">
+                                              <div class="modal-image-placeholder" style="display: none;">🎬 ${data.title || 'Anime'}</div>`;
+                } else {
+                    imageContainer.innerHTML = `<div class="modal-image-placeholder">🎬 ${data.title || 'Anime'}</div>`;
+                }
+                
+                // Set basic info
+                document.getElementById('modalTitle').textContent = data.title || 'Anime Title';
+                
+                if (data.rating) {
+                    const ratingVal = parseFloat(data.rating);
+                    document.getElementById('modalRating').textContent = isFinite(ratingVal) ? `★ ${ratingVal.toFixed(1)}` : 'N/A';
+                } else {
+                    document.getElementById('modalRating').textContent = 'N/A';
+                }
+                
+                document.getElementById('modalYear').textContent = data.year || 'N/A';
+                document.getElementById('modalType').textContent = data.type || 'N/A';
+                document.getElementById('modalEpisodes').textContent = data.episodes || 'N/A';
+                
+                // Set genres
+                const genresContainer = document.getElementById('modalGenresContainer');
+                const modalGenres = document.getElementById('modalGenres');
+                
+                if (data.genres) {
+                    const genres = typeof data.genres === 'string' ? data.genres.split(',').map(g => g.trim()) : [];
+                    if (genres.length > 0) {
+                        modalGenres.innerHTML = genres.map(g => `<span class="genre-tag">${g}</span>`).join('');
+                        genresContainer.style.display = 'block';
+                    } else {
+                        genresContainer.style.display = 'none';
+                    }
+                } else {
+                    genresContainer.style.display = 'none';
+                }
+                
+                // Show modal
+                modal.style.display = 'block';
+                console.log('[DEBUG] Modal displayed successfully');
+                
+            } catch (error) {
+                console.error('[ERROR] Exception in openWatchlistAnimeModal:', error);
+                alert('Error opening modal: ' + error.message);
+            }
+        }
+
+        async function showAnimeModal(animeId) {
+            watchlistSelectedAnimeId = animeId;
+            const modal = document.getElementById('animeModal');
+            modal.style.display = 'block';
+            
+            // Reset modal content
+            document.getElementById('modalTitle').textContent = 'Loading...';
+            document.getElementById('modalImageContainer').innerHTML = '<div class="modal-image-placeholder">Loading...</div>';
+            
+            try {
+                const response = await fetch(`/api/anime/${animeId}`);
+                if (!response.ok) throw new Error('Failed to fetch anime');
+                
+                const anime = await response.json();
+                
+                // Set image
+                const imageUrl = anime.imageUrl || anime.imageurl;
+                const imageContainer = document.getElementById('modalImageContainer');
+                if (imageUrl) {
+                    imageContainer.innerHTML = `<img src="${imageUrl}" alt="${anime.title}" class="modal-image" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                              <div class="modal-image-placeholder" style="display: none;">🎬 ${anime.title}</div>`;
+                } else {
+                    imageContainer.innerHTML = `<div class="modal-image-placeholder">🎬 ${anime.title}</div>`;
+                }
+                
+                // Set basic info
+                document.getElementById('modalTitle').textContent = anime.title || 'Anime Title';
+                document.getElementById('modalRating').textContent = anime.averageRating ? `★ ${anime.averageRating.toFixed(1)}` : 'N/A';
+                document.getElementById('modalYear').textContent = anime.releaseYear || 'N/A';
+                document.getElementById('modalType').textContent = anime.type || 'N/A';
+                document.getElementById('modalEpisodes').textContent = anime.episodes || 'N/A';
+                
+                // Set genres
+                const genresContainer = document.getElementById('modalGenresContainer');
+                const modalGenres = document.getElementById('modalGenres');
+                if (anime.genres) {
+                    const genreList = typeof anime.genres === 'string' ? anime.genres.split(',') : anime.genres;
+                    modalGenres.innerHTML = genreList.map(g => `<span class="genre-tag">${g.trim()}</span>`).join('');
+                    genresContainer.style.display = 'block';
+                } else {
+                    genresContainer.style.display = 'none';
+                }
+            } catch (e) {
+                console.error('Error loading anime:', e);
+                document.getElementById('modalTitle').textContent = 'Error loading anime details';
+            }
+        }
+        
         document.getElementById('create-watchlist-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const name = document.getElementById('watchlist-name').value;
@@ -447,55 +615,48 @@
             });
         });
 
-        async function showAnimeModal(animeId) {
-            const modal = document.getElementById('animeModal');
-            modal.style.display = 'block';
-            
-            // Reset modal content
-            document.getElementById('modalTitle').textContent = 'Loading...';
-            document.getElementById('modalImageContainer').innerHTML = '<div class="modal-image-placeholder">Loading...</div>';
-            
-            try {
-                const response = await fetch(`/api/anime/${animeId}`);
-                if (!response.ok) throw new Error('Failed to fetch anime');
-                
-                const anime = await response.json();
-                
-                // Set image
-                const imageUrl = anime.imageUrl || anime.imageurl;
-                const imageContainer = document.getElementById('modalImageContainer');
-                if (imageUrl) {
-                    imageContainer.innerHTML = `<img src="${imageUrl}" alt="${anime.title}" class="modal-image" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                                              <div class="modal-image-placeholder" style="display: none;">🎬 ${anime.title}</div>`;
-                } else {
-                    imageContainer.innerHTML = `<div class="modal-image-placeholder">🎬 ${anime.title}</div>`;
-                }
-                
-                // Set basic info
-                document.getElementById('modalTitle').textContent = anime.title || 'Anime Title';
-                document.getElementById('modalRating').textContent = anime.averageRating ? `★ ${anime.averageRating.toFixed(1)}` : 'N/A';
-                document.getElementById('modalYear').textContent = anime.releaseYear || 'N/A';
-                document.getElementById('modalType').textContent = anime.type || 'N/A';
-                document.getElementById('modalEpisodes').textContent = anime.episodes || 'N/A';
-                
-                // Set genres
-                const genresContainer = document.getElementById('modalGenresContainer');
-                const modalGenres = document.getElementById('modalGenres');
-                if (anime.genres) {
-                    const genreList = typeof anime.genres === 'string' ? anime.genres.split(',') : anime.genres;
-                    modalGenres.innerHTML = genreList.map(g => `<span class="genre-tag">${g.trim()}</span>`).join('');
-                    genresContainer.style.display = 'block';
-                } else {
-                    genresContainer.style.display = 'none';
-                }
-            } catch (e) {
-                console.error('Error loading anime:', e);
-                document.getElementById('modalTitle').textContent = 'Error loading anime details';
-            }
-        }
-
         function closeAnimeModal() {
             document.getElementById('animeModal').style.display = 'none';
+            watchlistSelectedAnimeId = null;
+        }
+
+        function goToSimilarFromWatchlist() {
+            console.log('[DEBUG] goToSimilarFromWatchlist called, watchlistSelectedAnimeId:', watchlistSelectedAnimeId);
+            if (!watchlistSelectedAnimeId) {
+                console.error('[ERROR] No anime selected');
+                alert('No anime selected');
+                return;
+            }
+            console.log('[DEBUG] Anime ID type:', typeof watchlistSelectedAnimeId);
+            console.log('[DEBUG] Anime ID value:', watchlistSelectedAnimeId);
+            const targetUrl = `/anime/${watchlistSelectedAnimeId}/recommendations?id=${watchlistSelectedAnimeId}`;
+            console.log('[DEBUG] Navigating to:', targetUrl);
+            window.location.href = targetUrl;
+        }
+        
+        function openRatingPrompt() {
+            if (!watchlistSelectedAnimeId) {
+                alert('No anime selected');
+                return;
+            }
+            const score = prompt('Rate this anime (1-10):');
+            if (score && score >= 1 && score <= 10) {
+                fetch('/api/ratings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ anime_id: watchlistSelectedAnimeId, score: parseInt(score) })
+                }).then(response => {
+                    if (response.ok) {
+                        alert('Rating submitted! 🎉');
+                        closeAnimeModal();
+                    } else {
+                        alert('Failed to submit rating');
+                    }
+                }).catch(error => {
+                    console.error('Error:', error);
+                    alert('Error submitting rating');
+                });
+            }
         }
 
         // Close modal when clicking outside
@@ -569,7 +730,5 @@
             });
         });
     </script>
-        </div>
-    </div>
 </body>
 </html>

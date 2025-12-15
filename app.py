@@ -7,7 +7,7 @@ import json
 from functools import wraps
 
 # SQLAlchemy setup
-from models import db
+from models import db, Anime, AnimeGenre
 from Services.db_utils import execute_query, execute_query_one
 app = Flask(__name__)
 app.secret_key = 'aniflow_secret_key_123'
@@ -198,6 +198,16 @@ def home_feed():
         LIMIT 6
     """, fetch=True) or []
     
+    # Fetch recent ratings for the user
+    recent_ratings = execute_query("""
+        SELECT rs.score, ac."animeId", ac.title, ac."imageUrl"
+        FROM "ratingSnapshots" rs
+        JOIN "animeCatalog" ac ON rs."animeId" = ac."animeId"
+        WHERE rs."userId" = :user_id
+        ORDER BY rs."createTime" DESC
+        LIMIT 10
+    """, {"user_id": user_id}, fetch=True) or []
+    
     #first example of calling service for query
     # Get random anime for explore section using the service
     explore_anime = explore_service.get_random_anime_sync(limit=12)
@@ -205,10 +215,13 @@ def home_feed():
     # Send async Kafka event for explore (optional - for background processing)
     explore_service.send_explore_request(user_id)
     
+    # Get personalized recommendations based on user preferences and ratings
+    personalized_anime = recommendation_service.get_personalized_recommendations(user_id, limit=12)
+    
     # Create feed structure
     feed_data = {
-        'personalized_recommendations': {'recommended_anime': []},
-        'recent_ratings': [],
+        'personalized_recommendations': {'recommended_anime': personalized_anime},
+        'recent_ratings': recent_ratings,
         'sample_anime': sample_anime,
         'explore_anime': explore_anime,  # Add explore anime to feed
         'user_preferences': {}
@@ -217,6 +230,34 @@ def home_feed():
     return render_template('homePage.html', feed=feed_data)
 
 
+@app.route('/api/load-more-personalized')
+def load_more_personalized():
+    """API endpoint to load more personalized recommendations"""
+    if 'user_id' not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    user_id = session['user_id']
+    offset = int(request.args.get('offset', 0))
+    limit = int(request.args.get('limit', 12))
+    
+    # Get personalized recommendations with offset
+    personalized_anime = recommendation_service.get_personalized_recommendations(user_id, limit=limit, offset=offset)
+    
+    return jsonify({"anime": personalized_anime, "count": len(personalized_anime)})
+
+
+@app.route('/api/load-more-explore')
+def load_more_explore():
+    """API endpoint to load more explore anime"""
+    if 'user_id' not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    limit = int(request.args.get('limit', 12))
+    
+    # Get random anime for explore section
+    explore_anime = explore_service.get_random_anime_sync(limit=limit)
+    
+    return jsonify({"anime": explore_anime, "count": len(explore_anime)})
 
 
 @app.route('/anime/<anime_id>')
@@ -247,9 +288,32 @@ def advanced_search():
         rating = request.form.get('rating')
         
         results = search_service.advanced_search(title, genre, year, rating)
-        return render_template('advancedSearch.html', results=results)
+        return render_template('advancedSearch.html', results=results[:60])  # Limit to 60 per page
     
     return render_template('advancedSearch.html', results=[])
+
+@app.route('/api/search/advanced', methods=['GET'])
+def api_advanced_search():
+    """API endpoint for advanced search with pagination"""
+    title = request.args.get('title', '')
+    genre = request.args.get('genre', '')
+    year = request.args.get('year', '')
+    rating = request.args.get('rating', '')
+    offset = int(request.args.get('offset', 0))
+    limit = int(request.args.get('limit', 60))
+    
+    results = search_service.advanced_search(title, genre, year, rating)
+    
+    # Apply pagination
+    paginated_results = results[offset:offset + limit]
+    
+    return jsonify({
+        'results': paginated_results,
+        'total': len(results),
+        'offset': offset,
+        'limit': limit,
+        'has_more': offset + limit < len(results)
+    })
 
 @app.route('/browse')
 def browse_anime():
@@ -413,9 +477,9 @@ def rate_anime():
     # 1. COMMAND: Write 
     rating_id = str(uuid.uuid4())
     result = execute_query("""
-        INSERT INTO "ratingSnapshots" ("ratingId", "userId", "animeId", score)
-        VALUES (:rating_id, :user_id, :anime_id, :score)
-        ON CONFLICT ("userId", "animeId") DO UPDATE SET score = EXCLUDED.score
+        INSERT INTO "ratingSnapshots" ("ratingId", "userId", "animeId", score, "createTime")
+        VALUES (:rating_id, :user_id, :anime_id, :score, NOW())
+        ON CONFLICT ("userId", "animeId") DO UPDATE SET score = EXCLUDED.score, "createTime" = NOW()
     """, {"rating_id": rating_id, "user_id": user_id, "anime_id": anime_id, "score": score})
     
     if not result:
@@ -475,6 +539,7 @@ def profile():
     user = execute_query_one('SELECT * FROM "users" WHERE "userId" = :user_id', {"user_id": user_id})
     
     # Fetch rated anime details
+    print(f"[DEBUG] Fetching rated anime for user_id: {user_id}")
     rated_anime_details = execute_query(
         """
         SELECT rs.score, ac."animeId", ac.title, ac."imageUrl"
@@ -486,6 +551,11 @@ def profile():
         {"user_id": user_id},
         fetch=True
     )
+    print(f"[DEBUG] Query returned: {rated_anime_details}")
+    print(f"[DEBUG] Found {len(rated_anime_details) if rated_anime_details else 0} rated anime")
+    if rated_anime_details and len(rated_anime_details) > 0:
+        print(f"[DEBUG] First rating keys: {rated_anime_details[0].keys() if rated_anime_details else 'None'}")
+        print(f"[DEBUG] First rating data: {rated_anime_details[0] if rated_anime_details else 'None'}")
     
     # Fetch user's watchlists and their anime details
     user_watchlists = watchlist_service.get_watchlists_for_user(user_id)
@@ -542,20 +612,216 @@ def profile():
         "watchlist_count": total_watchlist_anime_count,
         "reviews_written": reviews_written_count['count'] if reviews_written_count else 0
     }
+    
+    # Fetch user preferences (demographic info and preferred genres)
+    user_prefs = execute_query_one('SELECT * FROM "profilePreferences" WHERE "userId" = :user_id', {"user_id": user_id})
+    user_demographic = {}
+    user_preferred_genres = []
+    user_preferred_studios = []
+    user_preferred_themes = []
+    
+    if user_prefs:
+        if user_prefs.get('demographic'):
+            user_demographic = user_prefs['demographic'] if isinstance(user_prefs['demographic'], dict) else {}
+        if user_prefs.get('preferredGenres'):
+            user_preferred_genres = user_prefs['preferredGenres'] if isinstance(user_prefs['preferredGenres'], list) else []
+        if user_prefs.get('preferredStudios'):
+            user_preferred_studios = user_prefs['preferredStudios'] if isinstance(user_prefs['preferredStudios'], list) else []
+        if user_prefs.get('preferredThemes'):
+            user_preferred_themes = user_prefs['preferredThemes'] if isinstance(user_prefs['preferredThemes'], list) else []
 
     return render_template(
         'userPage.html', 
         user=user, 
         stats=user_stats,
         rated_anime=rated_anime_details,
-        user_watchlists=user_watchlists_with_anime
+        user_watchlists=user_watchlists_with_anime,
+        user_demographic=user_demographic,
+        user_preferred_genres=user_preferred_genres,
+        user_preferred_studios=user_preferred_studios,
+        user_preferred_themes=user_preferred_themes
     )
+
+@app.route('/edit-profile', methods=['GET', 'POST'])
+def edit_profile():
+    if 'user_id' not in session:
+        return redirect('/login')
+    
+    user_id = session['user_id']
+    user = execute_query_one('SELECT * FROM "users" WHERE "userId" = :user_id', {"user_id": user_id})
+    
+    if request.method == 'POST':
+        new_username = request.form.get('username', '').strip()
+        new_email = request.form.get('email', '').strip()
+        
+        if not new_username or not new_email:
+            return render_template('editProfile.html', user=user, error='Username and email are required')
+        
+        try:
+            execute_query("""
+                UPDATE "users" 
+                SET username = :username, email = :email 
+                WHERE "userId" = :user_id
+            """, {"username": new_username, "email": new_email, "user_id": user_id})
+            return redirect('/profile')
+        except Exception as e:
+            return render_template('editProfile.html', user=user, error=str(e))
+    
+    return render_template('editProfile.html', user=user)
+
+@app.route('/change-password', methods=['GET', 'POST'])
+def change_password():
+    if 'user_id' not in session:
+        return redirect('/login')
+    
+    user_id = session['user_id']
+    
+    if request.method == 'POST':
+        current_password = request.form.get('current_password', '')
+        new_password = request.form.get('new_password', '')
+        confirm_password = request.form.get('confirm_password', '')
+        
+        if not new_password or not confirm_password:
+            return render_template('changePassword.html', error='New password and confirmation are required')
+        
+        if new_password != confirm_password:
+            return render_template('changePassword.html', error='Passwords do not match')
+        
+        user = execute_query_one('SELECT * FROM "users" WHERE "userId" = :user_id', {"user_id": user_id})
+        if not user or not check_password_hash(user['passwordHash'], current_password):
+            return render_template('changePassword.html', error='Current password is incorrect')
+        
+        try:
+            new_hash = generate_password_hash(new_password)
+            execute_query("""
+                UPDATE "users" 
+                SET "passwordHash" = :password_hash 
+                WHERE "userId" = :user_id
+            """, {"password_hash": new_hash, "user_id": user_id})
+            return redirect('/profile')
+        except Exception as e:
+            return render_template('changePassword.html', error=str(e))
+    
+    return render_template('changePassword.html')
+
+@app.route('/edit-demographic', methods=['GET', 'POST'])
+def edit_demographic():
+    if 'user_id' not in session:
+        return redirect('/login')
+    
+    user_id = session['user_id']
+    pref = execute_query_one('SELECT * FROM "profilePreferences" WHERE "userId" = :user_id', {"user_id": user_id})
+    demographic = pref.get('demographic', {}) if pref else {}
+    
+    if request.method == 'POST':
+        demographic = {
+            'age': request.form.get('age', ''),
+            'region': request.form.get('region', ''),
+            'bio': request.form.get('bio', '')
+        }
+        
+        try:
+            if pref:
+                execute_query("""
+                    UPDATE "profilePreferences" 
+                    SET demographic = :demographic 
+                    WHERE "userId" = :user_id
+                """, {"demographic": json.dumps(demographic), "user_id": user_id})
+            else:
+                execute_query("""
+                    INSERT INTO "profilePreferences" ("userId", demographic)
+                    VALUES (:user_id, :demographic)
+                """, {"user_id": user_id, "demographic": json.dumps(demographic)})
+            return redirect('/profile')
+        except Exception as e:
+            return render_template('editDemographic.html', demographic=demographic, error=str(e))
+    
+    return render_template('editDemographic.html', demographic=demographic)
+
+@app.route('/edit-preferences', methods=['GET', 'POST'])
+def edit_preferences():
+    if 'user_id' not in session:
+        return redirect('/login')
+    
+    user_id = session['user_id']
+    
+    # Fetch all available genres with their popularity count
+    all_genres_result = execute_query(
+        'SELECT DISTINCT genres FROM "animeGenres" WHERE genres IS NOT NULL',
+        {},
+        fetch=True
+    )
+    
+    genre_counts = {}
+    if all_genres_result:
+        for row in all_genres_result:
+            genre_str = row.get('genres', '')
+            if genre_str:
+                # Split by comma and clean up
+                genres_list = [g.strip() for g in genre_str.split(',') if g.strip()]
+                for genre in genres_list:
+                    genre_counts[genre] = genre_counts.get(genre, 0) + 1
+    
+    # Sort genres by popularity (count), then alphabetically
+    all_genres = sorted(genre_counts.keys(), key=lambda x: (-genre_counts[x], x))
+    
+    pref = execute_query_one('SELECT * FROM "profilePreferences" WHERE "userId" = :user_id', {"user_id": user_id})
+    preferred_genres = pref.get('preferredGenres', []) if pref else []
+    
+    if request.method == 'POST':
+        # Get selected genres from checkboxes
+        selected_genres = request.form.getlist('genres')
+        
+        try:
+            if pref:
+                execute_query("""
+                    UPDATE "profilePreferences" 
+                    SET "preferredGenres" = :genres 
+                    WHERE "userId" = :user_id
+                """, {"genres": json.dumps(selected_genres), "user_id": user_id})
+            else:
+                execute_query("""
+                    INSERT INTO "profilePreferences" ("userId", "preferredGenres")
+                    VALUES (:user_id, :genres)
+                """, {"user_id": user_id, "genres": json.dumps(selected_genres)})
+            return redirect('/profile')
+        except Exception as e:
+            return render_template('editPreferences.html', preferred_genres=preferred_genres, all_genres=all_genres, genre_counts=genre_counts, error=str(e))
+    
+    return render_template('editPreferences.html', preferred_genres=preferred_genres, all_genres=all_genres, genre_counts=genre_counts)
 
 @app.route('/anime/<anime_id>/recommendations')
 def get_similar_anime(anime_id):
     """Get recommendations for a specific anime."""
-    recommendations = recommendation_service.get_recommendations(anime_id)
-    return jsonify(recommendations)
+    try:
+        recommendations = recommendation_service.get_recommendations(anime_id)
+        
+        # Check if it's an API request (JSON) or a page request (HTML)
+        if request.accept_mimetypes.best == 'application/json' or 'application/json' in request.headers.get('Accept', ''):
+            return jsonify({"recommendations": recommendations or []})
+        else:
+            # Return the rendered HTML page with the anime ID as a query parameter
+            return render_template('relatedAnime.html')
+    except Exception as e:
+        print(f"Error getting recommendations: {e}")
+        if request.accept_mimetypes.best == 'application/json' or 'application/json' in request.headers.get('Accept', ''):
+            return jsonify({"recommendations": [], "error": str(e)}), 500
+        else:
+            return render_template('relatedAnime.html')
+
+@app.route('/api/anime/<anime_id>/recommendations', methods=['GET'])
+def api_get_recommendations(anime_id):
+    """API endpoint for getting anime recommendations"""
+    try:
+        print(f"[DEBUG] api_get_recommendations route called with anime_id: {anime_id} (type: {type(anime_id)})")
+        recommendations = recommendation_service.get_recommendations(anime_id)
+        print(f"[DEBUG] get_recommendations returned {len(recommendations) if recommendations else 0} results")
+        return jsonify({"recommendations": recommendations or []})
+    except Exception as e:
+        print(f"Error getting recommendations: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"recommendations": [], "error": str(e)}), 500
     
 @app.route('/admin/flagged-anime')
 def admin_flagged_anime():
@@ -853,6 +1119,31 @@ def get_watchlists():
     
     user_id = session['user_id']
     watchlists = watchlist_service.get_watchlists_for_user(user_id)
+    
+    # Enrich watchlist items with anime details
+    for watchlist in watchlists:
+        if isinstance(watchlist.items, list):
+            enriched_items = []
+            for item in watchlist.items:
+                anime_id = item.get('animeId')
+                if anime_id:
+                    anime = Anime.query.get(anime_id)
+                    if anime:
+                        # Get genres from AnimeGenre table
+                        anime_genre = AnimeGenre.query.filter_by(animeId=anime_id).first()
+                        genres = anime_genre.genres if anime_genre else ''
+                        
+                        enriched_items.append({
+                            'animeId': str(anime.animeId),
+                            'title': anime.title,
+                            'imageUrl': anime.imageUrl,
+                            'averageRating': anime.averageRating,
+                            'releaseYear': anime.releaseYear,
+                            'type': anime.type,
+                            'episodes': anime.episodes,
+                            'genres': genres
+                        })
+            watchlist.items = enriched_items
     
     return render_template('watchlists.html', watchlists=watchlists)
 

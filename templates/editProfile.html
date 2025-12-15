@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AniFlow - Edit Profile</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 0; 
+            padding: 0; 
+            background: #f5f5f5; 
+            color: #333;
+        }
+        .header { 
+            background: white; 
+            padding: 15px 0; 
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1); 
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo { 
+            font-size: 24px; 
+            font-weight: bold; 
+            color: #007bff;
+            text-decoration: none;
+        }
+        .nav-links a {
+            margin-left: 20px;
+            text-decoration: none;
+            color: #333;
+        }
+        .nav-links a:hover {
+            color: #007bff;
+        }
+        .container { 
+            max-width: 600px; 
+            margin: 30px auto; 
+            padding: 20px; 
+        }
+        .section { 
+            background: white; 
+            padding: 25px; 
+            border-radius: 10px; 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .section-title {
+            font-size: 24px;
+            margin-bottom: 20px;
+            color: #333;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input[type="text"],
+        input[type="email"],
+        textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 14px;
+        }
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+        .btn {
+            background: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 10px;
+        }
+        .btn:hover {
+            background: #0056b3;
+        }
+        .btn-secondary {
+            background: #6c757d;
+        }
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 12px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            border: 1px solid #f5c6cb;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            padding: 12px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            border: 1px solid #c3e6cb;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <a href="/home" class="logo">🎌 AniFlow</a>
+            <div class="nav-links">
+                <a href="/home">Home</a>
+                <a href="/profile">Profile</a>
+                <a href="/watchlists">Watchlist</a>
+                <a href="/search">Search</a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div class="section">
+            <h2 class="section-title">✏️ Edit Profile</h2>
+            
+            {% if error %}
+            <div class="error">{{ error }}</div>
+            {% endif %}
+            
+            <form method="POST">
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" name="username" value="{{ user.username or '' }}" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" name="email" value="{{ user.email or '' }}" required>
+                </div>
+                
+                <div style="display: flex; gap: 10px;">
+                    <button type="submit" class="btn">💾 Save Changes</button>
+                    <a href="/profile" class="btn btn-secondary">❌ Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

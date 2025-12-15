@@ -161,27 +161,32 @@
             max-width: 920px;
             width: 100%;
             display: flex;
+            flex-direction: column;
             position: relative;
             box-shadow: 0 10px 30px rgba(0,0,0,0.2);
             overflow: hidden;
             max-height: 90vh;
         }
-        .modal > img,
-        .modal > div:first-of-type {
-            width: 320px;
-            min-width: 320px;
+        .modal-header {
+            display: flex;
+            gap: 20px;
+            padding: 20px 20px 0 20px;
+        }
+        #exploreModalImageContainer {
+            width: 240px;
+            min-width: 240px;
             background: #f5f5f5;
-            border-radius: 10px 0 0 10px;
+            border-radius: 8px;
             display: flex;
             align-items: center;
             justify-content: center;
         }
-        .modal img {
+        .explore-modal-image {
             width: 100%;
             height: auto;
-            max-height: 90vh;
+            max-height: 420px;
             object-fit: contain;
-            border-radius: 10px 0 0 10px;
+            border-radius: 8px;
         }
         .modal-content {
             padding: 20px;
@@ -213,9 +218,33 @@
         }
         .modal-genres {
             margin-top: 12px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
         }
         .modal-genres .genre-tag {
-            margin: 4px 4px 0 0;
+            margin: 0;
+        }
+        .modal-actions {
+            padding: 12px 20px 20px 20px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .modal-actions .btn {
+            flex: 1;
+            text-align: center;
+        }
+        .modal-watchlist {
+            padding: 0 20px 20px 20px;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .modal-watchlist label {
+            font-weight: bold;
         }
     </style>
 </head>
@@ -229,7 +258,6 @@
                 <a href="/watchlists">Watchlist</a>
                 <a href="/search">Search</a>
                 <a href="/recommendations/beginner">Beginner Guide</a>
-                <a href="/logout">Logout</a>
             </div>
         </div>
     </div>
@@ -251,31 +279,46 @@
         <div class="section">
             <h2 class="section-title">🎯 Personalized For You</h2>
             {% if feed.personalized_recommendations and feed.personalized_recommendations.recommended_anime %}
-            <div class="anime-row">
+            <div class="anime-row" id="personalized-container">
                 {% for anime in feed.personalized_recommendations.recommended_anime %}
-                <div class="anime-card" onclick="rateAnime('{{ anime.animeid }}')">
-                    <div style="height: 200px; background: #f8f9fa; border-radius: 5px; display: flex; align-items: center; justify-content: center; margin-bottom: 10px;">
-                        <span style="color: #999; font-size: 14px;">Anime Art</span>
+                <div class="anime-card" onclick="openExploreModal(this)"
+                     data-id="{{ (anime.animeid or anime.animeId)|e }}"
+                     data-title="{{ (anime.title or 'Anime Title')|e }}"
+                     data-year="{{ (anime.releaseYear or anime.releaseyear or 'N/A')|e }}"
+                     data-rating="{{ (anime.averageRating or anime.averagerating or 'N/A')|e }}"
+                     data-type="{{ (anime.type or 'N/A')|e }}"
+                     data-episodes="{{ (anime.episodes or 'N/A')|e }}"
+                     data-genres="{{ (anime.genres or '')|e }}">
+                    {% if anime.imageUrl or anime.imageurl %}
+                    <img src="{{ anime.imageUrl or anime.imageurl }}" 
+                         alt="{{ anime.title }}" 
+                         style="width: 100%; height: 200px; object-fit: cover; border-radius: 5px; margin-bottom: 10px;"
+                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                    {% endif %}
+                    <div style="height: 200px; background: #f8f9fa; border-radius: 5px; display: {% if anime.imageUrl or anime.imageurl %}none{% else %}flex{% endif %}; align-items: center; justify-content: center; margin-bottom: 10px;">
+                        <span style="color: #999; font-size: 14px;">No Image</span>
                     </div>
                     <div class="anime-title">{{ anime.title or "Recommended Anime" }}</div>
-                    <div class="anime-synopsis">
-                        {{ anime.synopsis[:80] + '...' if anime.synopsis else "Based on your preferences and ratings" }}
-                    </div>
                     <div class="anime-meta">
-                        <span class="rating">★ 8.5</span>
-                        <span>2023</span>
+                        <span class="rating">★ {{ "%.1f"|format(anime.averageRating or anime.averagerating or 0) }}</span>
+                        <span>{{ anime.releaseYear or anime.releaseyear or 'N/A' }}</span>
                     </div>
                     <div style="margin-top: 10px;">
-                        <span class="genre-tag">Action</span>
-                        <span class="genre-tag">Adventure</span>
+                        {% set genre_list = (anime.genres or '').split(',')[:3] %}
+                        {% for genre in genre_list %}
+                            <span class="genre-tag">{{ genre.strip() }}</span>
+                        {% endfor %}
                     </div>
                 </div>
                 {% endfor %}
             </div>
+            <div style="text-align: center; margin-top: 20px;">
+                <button id="load-more-personalized" class="btn" onclick="loadMorePersonalized()">Load More</button>
+            </div>
             {% else %}
             <div class="empty-state">
                 <p>🎭 No personalized recommendations yet</p>
-                <p>Rate some anime to get personalized suggestions!</p>
+                <p>Add preferred genres in your <a href="/profile">profile</a> or rate some anime to get personalized suggestions!</p>
                 <a href="/browse" class="btn">Browse Anime</a>
             </div>
             {% endif %}
@@ -285,7 +328,7 @@
 <div class="section">
     <h2 class="section-title">🔍 Explore Random Anime</h2>
     {% if feed.explore_anime %}
-    <div class="anime-row">
+    <div class="anime-row" id="explore-container">
         {% for anime in feed.explore_anime %}
            <div class="anime-card" onclick="openExploreModal(this)"
                data-id="{{ (anime.animeid or anime.animeId)|e }}"
@@ -324,6 +367,9 @@
         </div>
         {% endfor %}
     </div>
+    <div style="text-align: center; margin-top: 20px;">
+        <button id="load-more-explore" class="btn" onclick="loadMoreExplore()">Load More</button>
+    </div>
     {% else %}
     <div class="empty-state">
         <p>📺 No anime available to explore</p>
@@ -339,8 +385,12 @@
             <div class="anime-row">
                 {% for rating in feed.recent_ratings %}
                 <div class="anime-card">
-                    <div style="height: 200px; background: #f3e5f5; border-radius: 5px; display: flex; align-items: center; justify-content: center; margin-bottom: 10px;">
-                        <span style="color: #7b1fa2; font-size: 14px;">Your Rating</span>
+                    <div style="height: 200px; background: #f3e5f5; border-radius: 5px; display: flex; align-items: center; justify-content: center; margin-bottom: 10px; overflow: hidden;">
+                        {% if rating.imageUrl or rating.imageurl %}
+                            <img src="{{ rating.imageUrl or rating.imageurl }}" alt="{{ rating.title }}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.style.display='none'">
+                        {% else %}
+                            <span style="color: #7b1fa2; font-size: 14px;">Your Rating</span>
+                        {% endif %}
                     </div>
                     <div class="anime-title">{{ rating.title or "Rated Anime" }}</div>
                     <div class="anime-synopsis">
@@ -349,7 +399,7 @@
                     <div class="anime-meta">
                         <span style="color: #ffa500; font-weight: bold;">Your Score: {{ rating.score }}/10</span>
                     </div>
-                    <button class="btn" style="width: 100%; margin-top: 10px; padding: 8px;" onclick="editRating('{{ rating.animeid }}')">
+                    <button class="btn" style="width: 100%; margin-top: 10px; padding: 8px;" onclick="editRating('{{ rating.animeId or rating.animeid }}')">
                         Edit Rating
                     </button>
                 </div>
@@ -440,14 +490,27 @@
             }
         }
 
+        function goToSimilarFromExplore() {
+            if (!currentExploreAnimeId) return;
+            window.location.href = `/anime/${currentExploreAnimeId}/recommendations?id=${currentExploreAnimeId}`;
+        }
+
         function openExploreModal(card) {
             const data = card.dataset;
             currentExploreAnimeId = data.id;
             const modal = document.getElementById('exploreModal');
-            const img = modal.querySelector('.modal-img');
-            img.src = data.image || '';
-            img.style.display = data.image ? 'block' : 'none';
 
+            // Image rendering with contain fit
+            const imageContainer = document.getElementById('exploreModalImageContainer');
+            const imageUrl = data.image;
+            if (imageUrl) {
+                imageContainer.innerHTML = `<img src="${imageUrl}" alt="${data.title || 'Anime cover'}" class="explore-modal-image" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">` +
+                    `<div class="modal-image-placeholder" style="display:none;">🎬 ${data.title || 'Anime'}</div>`;
+            } else {
+                imageContainer.innerHTML = `<div class="modal-image-placeholder">🎬 ${data.title || 'Anime'}</div>`;
+            }
+
+            // Basic info
             modal.querySelector('.modal-title').textContent = data.title || 'Anime Title';
             const rating = parseFloat(data.rating);
             modal.querySelector('.modal-rating').textContent = isFinite(rating) ? `★ ${rating.toFixed(1)}` : '★ N/A';
@@ -455,6 +518,7 @@
             modal.querySelector('.modal-type').textContent = data.type || 'Type: N/A';
             modal.querySelector('.modal-episodes').textContent = data.episodes ? `${data.episodes} episodes` : 'Episodes: N/A';
 
+            // Genres
             const genresContainer = modal.querySelector('.modal-genres');
             genresContainer.innerHTML = '';
             const genres = data.genres ? data.genres.split(',').map(g => g.trim()).filter(Boolean) : [];
@@ -529,31 +593,213 @@
                 alert('An error occurred while flagging.');
             });
         }
+
+        // Load More functionality
+        let personalizedOffset = {{ feed.personalized_recommendations.recommended_anime|length if feed.personalized_recommendations.recommended_anime else 0 }};
+        let exploreOffset = 0;
+
+        function loadMorePersonalized() {
+            const btn = document.getElementById('load-more-personalized');
+            btn.disabled = true;
+            btn.textContent = 'Loading...';
+
+            fetch(`/api/load-more-personalized?offset=${personalizedOffset}&limit=12`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.anime && data.anime.length > 0) {
+                        const container = document.getElementById('personalized-container');
+                        data.anime.forEach(anime => {
+                            const animeCard = createAnimeCard(anime);
+                            container.appendChild(animeCard);
+                        });
+                        personalizedOffset += data.anime.length;
+                        
+                        if (data.anime.length < 12) {
+                            btn.textContent = 'No More Anime';
+                            btn.disabled = true;
+                        } else {
+                            btn.textContent = 'Load More';
+                            btn.disabled = false;
+                        }
+                    } else {
+                        btn.textContent = 'No More Anime';
+                        btn.disabled = true;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading more personalized:', error);
+                    btn.textContent = 'Load More';
+                    btn.disabled = false;
+                });
+        }
+
+        function loadMoreExplore() {
+            const btn = document.getElementById('load-more-explore');
+            btn.disabled = true;
+            btn.textContent = 'Loading...';
+
+            fetch(`/api/load-more-explore?limit=12`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.anime && data.anime.length > 0) {
+                        const container = document.getElementById('explore-container');
+                        data.anime.forEach(anime => {
+                            const animeCard = createExploreCard(anime);
+                            container.appendChild(animeCard);
+                        });
+                        btn.textContent = 'Load More';
+                        btn.disabled = false;
+                    } else {
+                        btn.textContent = 'No More Anime';
+                        btn.disabled = true;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading more explore:', error);
+                    btn.textContent = 'Load More';
+                    btn.disabled = false;
+                });
+        }
+
+        function createAnimeCard(anime) {
+            const card = document.createElement('div');
+            card.className = 'anime-card';
+            card.onclick = function() { openExploreModal(this); };
+            
+            const animeId = anime.animeid || anime.animeId;
+            const title = anime.title || 'Anime Title';
+            const imageUrl = anime.imageUrl || anime.imageurl;
+            const rating = anime.averageRating || anime.averagerating || 0;
+            const year = anime.releaseYear || anime.releaseyear || 'N/A';
+            const type = anime.type || 'N/A';
+            const episodes = anime.episodes || 'N/A';
+            const genres = anime.genres || '';
+            
+            card.setAttribute('data-id', animeId);
+            card.setAttribute('data-title', title);
+            card.setAttribute('data-year', year);
+            card.setAttribute('data-rating', rating);
+            card.setAttribute('data-type', type);
+            card.setAttribute('data-episodes', episodes);
+            card.setAttribute('data-genres', genres);
+            
+            let imageHtml = '';
+            if (imageUrl) {
+                imageHtml = `
+                    <img src="${imageUrl}" alt="${title}" 
+                         style="width: 100%; height: 200px; object-fit: cover; border-radius: 5px; margin-bottom: 10px;"
+                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                `;
+            }
+            
+            const genreList = genres ? genres.split(',').slice(0, 3) : [];
+            const genreTags = genreList.map(g => `<span class="genre-tag">${g.trim()}</span>`).join('');
+            
+            card.innerHTML = `
+                ${imageHtml}
+                <div style="height: 200px; background: #f8f9fa; border-radius: 5px; display: ${imageUrl ? 'none' : 'flex'}; align-items: center; justify-content: center; margin-bottom: 10px;">
+                    <span style="color: #999; font-size: 14px;">No Image</span>
+                </div>
+                <div class="anime-title">${title}</div>
+                <div class="anime-meta">
+                    <span class="rating">★ ${parseFloat(rating).toFixed(1)}</span>
+                    <span>${year}</span>
+                </div>
+                <div style="margin-top: 10px;">
+                    ${genreTags}
+                </div>
+            `;
+            
+            return card;
+        }
+
+        function createExploreCard(anime) {
+            const card = document.createElement('div');
+            card.className = 'anime-card';
+            card.onclick = function() { openExploreModal(this); };
+            
+            const animeId = anime.animeid || anime.animeId;
+            const title = anime.title || 'Anime Title';
+            const imageUrl = anime.imageurl || anime.imageUrl;
+            const rating = anime.popularity_score || anime.averagerating || anime.averageRating || 8.0;
+            const year = anime.release_year || anime.releaseyear || anime.releaseYear || '2023';
+            const type = anime.type || 'Unknown';
+            const episodes = anime.episodes || 'N/A';
+            const genres = Array.isArray(anime.genres) ? anime.genres.join(',') : (anime.genres || '');
+            
+            card.setAttribute('data-id', animeId);
+            card.setAttribute('data-title', title);
+            card.setAttribute('data-image', imageUrl || '');
+            card.setAttribute('data-rating', rating);
+            card.setAttribute('data-year', year);
+            card.setAttribute('data-type', type);
+            card.setAttribute('data-episodes', episodes);
+            card.setAttribute('data-genres', genres);
+            
+            let imageHtml = '';
+            if (imageUrl) {
+                imageHtml = `
+                    <img src="${imageUrl}" alt="${title}" 
+                         style="width: 100%; height: 200px; object-fit: cover; border-radius: 5px; margin-bottom: 10px;"
+                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                `;
+            }
+            
+            const genreList = Array.isArray(anime.genres) ? anime.genres.slice(0, 5) : (genres ? genres.split(',').slice(0, 5) : []);
+            const genreTags = genreList.map(g => `<span class="genre-tag">${typeof g === 'string' ? g.trim() : g}</span>`).join('') || '<span class="genre-tag">Anime</span>';
+            
+            card.innerHTML = `
+                ${imageHtml}
+                <div style="height: 200px; background: #e3f2fd; border-radius: 5px; display: ${imageUrl ? 'none' : 'flex'}; align-items: center; justify-content: center; margin-bottom: 10px;">
+                    <span style="color: #1976d2; font-size: 14px;">🎬 ${title.substring(0, 20)}</span>
+                </div>
+                <div class="anime-title">${title}</div>
+                <div class="anime-meta">
+                    <span class="rating">★ ${parseFloat(rating).toFixed(1)}</span>
+                    <span>${year}</span>
+                </div>
+                <div class="anime-meta" style="margin-top: 6px;">
+                    <span>${type}</span>
+                    <span>${episodes !== 'N/A' ? episodes + ' eps' : 'Episodes: N/A'}</span>
+                </div>
+                <div style="margin-top: 10px;">
+                    ${genreTags}
+                </div>
+            `;
+            
+            return card;
+        }
     </script>
 
     <div id="exploreModal" class="modal-overlay" onclick="if(event.target === this) closeExploreModal();">
         <div class="modal">
             <button class="modal-close" onclick="closeExploreModal()">×</button>
-            <img class="modal-img" alt="Anime cover" />
-            <div class="modal-content">
-                <h3 class="modal-title">Anime Title</h3>
-                <div class="modal-meta">
-                    <span class="modal-rating">★ 0.0</span>
-                    <span class="modal-year">Year: N/A</span>
+            <div class="modal-header">
+                <div id="exploreModalImageContainer"></div>
+                <div class="modal-content">
+                    <h3 class="modal-title">Anime Title</h3>
+                    <div class="modal-meta">
+                        <span class="modal-rating">★ 0.0</span>
+                        <span class="modal-year">Year: N/A</span>
+                    </div>
+                    <div class="modal-meta">
+                        <span class="modal-type">Type: N/A</span>
+                        <span class="modal-episodes">Episodes: N/A</span>
+                    </div>
+                    <div class="modal-genres"></div>
                 </div>
-                <div class="modal-meta">
-                    <span class="modal-type">Type: N/A</span>
-                    <span class="modal-episodes">Episodes: N/A</span>
-                </div>
-                <div class="modal-genres"></div>
-                <button class="btn" style="margin-top: 14px;" onclick="rateAnime(currentExploreAnimeId)">Rate This Anime</button>
-                <button class="btn" style="margin-top: 10px; background: #dc3545;" onclick="openFlagModalFromExplore()">Flag Incorrect Data</button>
-                <div style="margin-top: 10px;">
-                    <select id="exploreWatchlistSelect" class="form-control" style="display: inline-block; width: auto; padding: 8px;">
-                        <option value="">Select watchlist...</option>
-                    </select>
-                    <button class="btn" style="margin-left: 8px;" onclick="addExploreToWatchlist()">Add to Watchlist</button>
-                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn" onclick="rateAnime(currentExploreAnimeId)">Rate This Anime</button>
+                <button class="btn" style="background: #28a745;" onclick="goToSimilarFromExplore()">More Like This</button>
+                <button class="btn" style="background: #dc3545;" onclick="openFlagModalFromExplore()">Flag Incorrect Data</button>
+            </div>
+            <div class="modal-watchlist">
+                <label for="exploreWatchlistSelect">Add to Watchlist:</label>
+                <select id="exploreWatchlistSelect" class="form-control" style="flex: 1; min-width: 200px;">
+                    <option value="">Select watchlist...</option>
+                </select>
+                <button class="btn" onclick="addExploreToWatchlist()">Add</button>
             </div>
         </div>
     </div>
