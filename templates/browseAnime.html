@@ -345,7 +345,7 @@
 <body>
     <div class="header">
         <div class="header-content">
-            <a href="/home" class="logo">🎌 AniFlow</a>
+            <a href="/home" class="logo">AniFlow</a>
             <div class="nav-links">
                 <a href="/home">Home</a>
                 <a href="/profile">Profile</a>
@@ -357,7 +357,7 @@
     <div class="container">
         <!-- Sections Grid -->
         <div id="sectionsView" class="section">
-            <h2 class="section-title">📚 Browse Anime Categories</h2>
+            <h2 class="section-title">Browse Anime Categories</h2>
             <div id="loadingIndicator" style="text-align: center; padding: 40px; display: none;">
                 <div style="font-size: 24px; margin-bottom: 10px;">⏳ Loading categories...</div>
                 <div style="color: #999; font-size: 14px;">This may take a moment on first load</div>
@@ -523,7 +523,7 @@
             console.log('Sections length:', sections ? sections.length : 'null');
             
             if (!sections || sections.length === 0) {
-                grid.innerHTML = '<div class="empty-state" style="grid-column: 1/-1;">📺 No anime categories available yet. Please import anime data first from the Admin panel.</div>';
+                grid.innerHTML = '<div class="empty-state" style="grid-column: 1/-1;">No anime categories available yet. Please import anime data first from the Admin panel.</div>';
                 return;
             }
             
@@ -566,7 +566,7 @@
                     }
                     
                     if (data.anime.length === 0 && currentOffset === 0) {
-                        animeRow.innerHTML = '<div class="empty-state" style="grid-column: 1/-1;">📺 No anime available in this section</div>';
+                        animeRow.innerHTML = '<div class="empty-state" style="grid-column: 1/-1;">No anime available in this section</div>';
                     } else {
                         data.anime.forEach(anime => {
                             const card = document.createElement('div');
@@ -577,8 +577,8 @@
                             const imageUrl = anime.imageurl || anime.imageUrl || null;
                             const imageHtml = imageUrl 
                                 ? `<img src="${imageUrl}" alt="${anime.title}" class="anime-image" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                                   <div class="image-placeholder" style="display: none;">🎬 ${(anime.title || 'Anime').substring(0, 20)}</div>`
-                                : `<div class="image-placeholder">🎬 ${(anime.title || 'Anime').substring(0, 20)}</div>`;
+                                   <div class="image-placeholder" style="display: none;">${(anime.title || 'Anime').substring(0, 20)}</div>`
+                                : `<div class="image-placeholder">${(anime.title || 'Anime').substring(0, 20)}</div>`;
                             
                             let genreHtml = '';
                             if (anime.genres) {
@@ -642,7 +642,7 @@
                     body: JSON.stringify({ anime_id: animeId, score: parseInt(score) })
                 }).then(response => {
                     if (response.ok) {
-                        alert('Rating submitted! 🎉');
+                        alert('Rating submitted!');
                         // Stay on current view; optionally update local UI
                         // e.g., add a subtle checkmark or update recent ratings asynchronously
                     } else {
@@ -660,9 +660,9 @@
             const imageContainer = document.getElementById('modalImageContainer');
             if (imageUrl) {
                 imageContainer.innerHTML = `<img src="${imageUrl}" alt="${anime.title}" class="modal-image" onerror="this.style.display='none'; document.querySelector('.modal-image-placeholder').style.display='flex';">
-                                          <div class="modal-image-placeholder" style="display: none;">🎬 ${anime.title}</div>`;
+                                          <div class="modal-image-placeholder" style="display: none;">${anime.title}</div>`;
             } else {
-                imageContainer.innerHTML = `<div class="modal-image-placeholder">🎬 ${anime.title}</div>`;
+                imageContainer.innerHTML = `<div class="modal-image-placeholder">${anime.title}</div>`;
             }
             
             // Set basic info
@@ -709,7 +709,7 @@
                     body: JSON.stringify({ anime_id: selectedAnimeForRating, score: parseInt(score) })
                 }).then(response => {
                     if (response.ok) {
-                        alert('Rating submitted! 🎉');
+                        alert('Rating submitted!');
                         closeAnimeModal();
                         // Do not reload; keep user in the current section
                     } else {

@@ -200,7 +200,7 @@
 <body>
     <div class="header">
         <div class="header-content">
-            <a href="/home" class="logo">🎌 AniFlow</a>
+            <a href="/home" class="logo">AniFlow</a>
             <div class="nav-links">
                 <a href="/home">Home</a>
                 <a href="/profile" style="color: #007bff; font-weight: bold;">Profile</a>
@@ -218,13 +218,13 @@
             </div>
             <h1 class="profile-name">{{ user.username or "User" }}</h1>
             <div class="profile-email">{{ user.email or "No email provided" }}</div>
-            <a href="/edit-profile" class="btn btn-edit">✏️ Edit Profile</a>
+            <a href="/edit-profile" class="btn btn-edit">Edit Profile</a>
         </div>
 
         <!-- Account Information -->
         <div class="section">
             <h2 class="section-title">
-                📝 Account Information
+                Account Information
                 <a href="/edit-profile" class="btn" style="font-size: 12px; padding: 8px 15px;">Edit</a>
             </h2>
             <div class="info-grid">
@@ -253,7 +253,7 @@
         <!-- Demographic Information -->
         <div class="section">
             <h2 class="section-title">
-                👤 Demographic Information
+                Demographic Information
                 <a href="/edit-demographic" class="btn" style="font-size: 12px; padding: 8px 15px;">Edit</a>
             </h2>
             {% if user_demographic %}
@@ -284,14 +284,14 @@
         <!-- Preferences Section -->
         <div class="section">
             <h2 class="section-title">
-                ⚙️ Profile Preferences
+                Profile Preferences
                 <a href="/edit-preferences" class="btn" style="font-size: 12px; padding: 8px 15px;">Edit</a>
             </h2>
             
             <div class="preferences-grid">
                 <!-- Preferred Genres -->
                 <div class="preference-category">
-                    <div class="category-title">🎭 Preferred Genres</div>
+                    <div class="category-title">Preferred Genres</div>
                     <div class="tag-list">
                         {% if user_preferred_genres and user_preferred_genres|length > 0 %}
                             {% for genre in user_preferred_genres %}
@@ -305,7 +305,7 @@
 
                 <!-- Preferred Studios -->
                 <div class="preference-category">
-                    <div class="category-title">🎬 Preferred Studios</div>
+                    <div class="category-title">Preferred Studios</div>
                     <div class="tag-list">
                         {% if user_preferred_studios and user_preferred_studios|length > 0 %}
                             {% for studio in user_preferred_studios %}
@@ -319,7 +319,7 @@
 
                 <!-- Preferred Themes -->
                 <div class="preference-category">
-                    <div class="category-title">🎨 Preferred Themes</div>
+                    <div class="category-title">Preferred Themes</div>
                     <div class="tag-list">
                         {% if user_preferred_themes and user_preferred_themes|length > 0 %}
                             {% for theme in user_preferred_themes %}
@@ -335,7 +335,7 @@
 
         <!-- User Statistics -->
         <div class="section">
-            <h2 class="section-title">📊 Your Anime Stats</h2>
+            <h2 class="section-title">Your Anime Stats</h2>
             <div class="stats-grid">
                 <div class="stat-card">
                     <div class="stat-number">{{ stats.anime_rated or 0 }}</div>
@@ -359,7 +359,7 @@
         <!-- Your Rated Anime -->
         <div class="section">
             <h2 class="section-title" onclick="toggleVisibility('rated-anime-list')" style="cursor: pointer;">
-                ⭐ Your Rated Anime ({{ stats.anime_rated }}) <span class="watchlist-toggle">▼</span>
+                Your Rated Anime ({{ stats.anime_rated }}) <span class="watchlist-toggle"></span>
             </h2>
             <div id="rated-anime-list" class="anime-list-grid" style="display: none;">
                 {% if rated_anime %}
@@ -381,7 +381,7 @@
         <!-- Your Watchlists -->
         <div class="section">
             <h2 class="section-title" onclick="toggleVisibility('watchlists-container')" style="cursor: pointer;">
-                📚 Your Watchlists ({{ user_watchlists|length if user_watchlists else 0 }}) <span class="watchlist-toggle">▼</span>
+                Your Watchlists ({{ user_watchlists|length if user_watchlists else 0 }}) <span class="watchlist-toggle"></span>
             </h2>
             <div id="watchlists-container" style="display: none;">
                 {% if user_watchlists %}
@@ -412,12 +412,12 @@
 
         <!-- Account Actions -->
         <div class="section">
-            <h2 class="section-title">🔧 Account Actions</h2>
+            <h2 class="section-title">Account Actions</h2>
             <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                <a href="/export-data" class="btn" style="background: #6c757d;">📤 Export Data</a>
-                <a href="/privacy-settings" class="btn" style="background: #17a2b8;">🔒 Privacy Settings</a>
-                <a href="/delete-account" class="btn" style="background: #dc3545;">🗑️ Delete Account</a>
-                <a href="/logout" class="btn" style="background: #dc3545;">🚪 Logout</a>
+                <a href="/export-data" class="btn" style="background: #6c757d;">Export Data</a>
+                <a href="/privacy-settings" class="btn" style="background: #17a2b8;">Privacy Settings</a>
+                <a href="/delete-account" class="btn" style="background: #dc3545;">Delete Account</a>
+                <a href="/logout" class="btn" style="background: #dc3545;">Logout</a>
             </div>
         </div>
     </div>
@@ -460,7 +460,7 @@
             const toggleIcon = document.querySelector(`#${id}`).previousElementSibling.querySelector('.watchlist-toggle');
             if (element.style.display === 'none') {
                 element.style.display = 'grid'; // Use grid for anime lists
-                if (toggleIcon) toggleIcon.textContent = '▼';
+                if (toggleIcon) toggleIcon.textContent = '';
             } else {
                 element.style.display = 'none';
                 if (toggleIcon) toggleIcon.textContent = '▶';

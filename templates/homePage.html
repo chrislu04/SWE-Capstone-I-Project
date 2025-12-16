@@ -251,7 +251,7 @@
 <body>
     <div class="header">
         <div class="header-content">
-            <a href="/home" class="logo">🎌 AniFlow</a>
+            <a href="/home" class="logo">🎬 AniFlow</a>
             <div class="nav-links">
                 <a href="/home">Home</a>
                 <a href="/profile">Profile</a>
@@ -266,21 +266,21 @@
     <div class="container">
         <!-- Welcome Section -->
         <div class="welcome">
-            <h2>Welcome to Your Anime Dashboard! 🎉</h2>
+            <h2>Welcome to Your Anime Dashboard!</h2>
             <p>Discover your next favorite anime with personalized recommendations</p>
             <div style="margin-top: 20px;">
-                <a href="/browse" class="btn" style="margin: 0 10px;">🎭 Browse Anime</a>
-                <a href="/search" class="btn" style="margin: 0 10px;">🔍 Advanced Search</a>
-                <a href="/watchlists" class="btn" style="margin: 0 10px; background: #28a745;">📋 My Watchlists</a>
-                {% if is_admin %}
-                <a href="/admin/import-anime" class="btn" style="margin: 0 10px; background: #6c757d;">📤 Admin: Import Anime</a>
-                {% endif %}
+                <a href="/browse" class="btn" style="margin: 0 10px;">Browse Anime</a>
+                <a href="/search" class="btn" style="margin: 0 10px;">Advanced Search</a>
+                <a href="/watchlists" class="btn" style="margin: 0 10px; background: #28a745;">My Watchlists</a>
             </div>
         </div>
 
         <!-- Personalized Recommendations Section -->
         <div class="section">
-            <h2 class="section-title">🎯 Personalized For You</h2>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 class="section-title" style="margin: 0; border: none; padding: 0;">Personalized For You</h2>
+                <button class="btn" onclick="refreshRecommendations()" style="background: #28a745;">Refresh Recommendations</button>
+            </div>
             {% if feed.personalized_recommendations and feed.personalized_recommendations.recommended_anime %}
             <div class="anime-row" id="personalized-container">
                 {% for anime in feed.personalized_recommendations.recommended_anime %}
@@ -321,7 +321,7 @@
             </div>
             {% else %}
             <div class="empty-state">
-                <p>🎭 No personalized recommendations yet</p>
+                <p>No personalized recommendations yet</p>
                 <p>Add preferred genres in your <a href="/profile">profile</a> or rate some anime to get personalized suggestions!</p>
                 <a href="/browse" class="btn">Browse Anime</a>
             </div>
@@ -330,7 +330,7 @@
 
 <!-- Explore Random Anime Section -->
 <div class="section">
-    <h2 class="section-title">🔍 Explore Random Anime</h2>
+    <h2 class="section-title">Explore Random Anime</h2>
     {% if feed.explore_anime %}
     <div class="anime-row" id="explore-container">
         {% for anime in feed.explore_anime %}
@@ -348,7 +348,7 @@
             <img src="{{ image_url }}" alt="{{ anime.title }}" style="width: 100%; height: 200px; object-fit: cover; border-radius: 5px; margin-bottom: 10px;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
             {% endif %}
             <div style="height: 200px; background: #e3f2fd; border-radius: 5px; display: {% if image_url %}none{% else %}flex{% endif %}; align-items: center; justify-content: center; margin-bottom: 10px;">
-                <span style="color: #1976d2; font-size: 14px;">🎬 {{ anime.title[:20] if anime.title else 'Anime' }}</span>
+                <span style="color: #1976d2; font-size: 14px;">{{ anime.title[:20] if anime.title else 'Anime' }}</span>
             </div>
             <div class="anime-title">{{ anime.title or "Anime Title" }}</div>
             <div class="anime-meta">
@@ -376,7 +376,7 @@
     </div>
     {% else %}
     <div class="empty-state">
-        <p>📺 No anime available to explore</p>
+        <p>No anime available to explore</p>
         <p>Check back later for new additions!</p>
     </div>
     {% endif %}
@@ -384,11 +384,19 @@
 
         <!-- Recently Rated Section -->
         <div class="section">
-            <h2 class="section-title">⭐ Your Recent Ratings</h2>
+            <h2 class="section-title">Your Recent Ratings</h2>
             {% if feed.recent_ratings %}
             <div class="anime-row">
                 {% for rating in feed.recent_ratings %}
-                <div class="anime-card">
+                <div class="anime-card" onclick="openExploreModal(this)"
+                     data-id="{{ rating.animeId or rating.animeid }}"
+                     data-title="{{ rating.title or 'Anime Title' }}"
+                     data-rating="{{ rating.score }}"
+                     data-year="{{ rating.releaseYear or rating.releaseyear or rating.release_year or 'N/A' }}"
+                     data-type="{{ rating.type or 'Unknown' }}"
+                     data-episodes="{{ rating.episodes or 'N/A' }}"
+                     data-genres="{{ rating.genres or '' }}"
+                     data-image="{{ rating.imageUrl or rating.imageurl or '' }}">
                     <div style="height: 200px; background: #f3e5f5; border-radius: 5px; display: flex; align-items: center; justify-content: center; margin-bottom: 10px; overflow: hidden;">
                         {% if rating.imageUrl or rating.imageurl %}
                             <img src="{{ rating.imageUrl or rating.imageurl }}" alt="{{ rating.title }}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.style.display='none'">
@@ -403,7 +411,7 @@
                     <div class="anime-meta">
                         <span style="color: #ffa500; font-weight: bold;">Your Score: {{ rating.score }}/10</span>
                     </div>
-                    <button class="btn" style="width: 100%; margin-top: 10px; padding: 8px;" onclick="editRating('{{ rating.animeId or rating.animeid }}')">
+                    <button class="btn" style="width: 100%; margin-top: 10px; padding: 8px;" onclick="event.stopPropagation(); editRating('{{ rating.animeId or rating.animeid }}')">
                         Edit Rating
                     </button>
                 </div>
@@ -411,7 +419,7 @@
             </div>
             {% else %}
             <div class="empty-state">
-                <p>🌟 You haven't rated any anime yet</p>
+                <p>You haven't rated any anime yet</p>
                 <p>Start rating to improve your recommendations!</p>
                 <a href="/browse" class="btn">Rate Anime</a>
             </div>
@@ -454,6 +462,52 @@
                     alert('Failed to update rating: ' + err.message);
                 });
             }
+        }
+
+        function refreshRecommendations() {
+            if (!confirm('This will clear your cached recommendations and compute fresh ones. Continue?')) {
+                return;
+            }
+            
+            fetch('/api/recommendations/refresh', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert('Recommendations refreshed!');
+                    location.reload();
+                } else {
+                    alert('Failed to refresh: ' + (data.message || 'Unknown error'));
+                }
+            })
+            .catch(err => {
+                alert('Error refreshing recommendations: ' + err.message);
+            });
+        }
+
+        function refreshRecommendations() {
+            if (!confirm('This will clear your cached recommendations and compute fresh ones. Continue?')) {
+                return;
+            }
+            
+            fetch('/api/recommendations/refresh', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert('Recommendations refreshed!');
+                    location.reload();
+                } else {
+                    alert('Failed to refresh: ' + (data.message || 'Unknown error'));
+                }
+            })
+            .catch(err => {
+                alert('Error refreshing recommendations: ' + err.message);
+            });
         }
 
         let currentExploreAnimeId = null;
@@ -520,9 +574,9 @@
             const imageUrl = data.image;
             if (imageUrl) {
                 imageContainer.innerHTML = `<img src="${imageUrl}" alt="${data.title || 'Anime cover'}" class="explore-modal-image" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">` +
-                    `<div class="modal-image-placeholder" style="display:none;">🎬 ${data.title || 'Anime'}</div>`;
+                    `<div class="modal-image-placeholder" style="display:none;">${data.title || 'Anime'}</div>`;
             } else {
-                imageContainer.innerHTML = `<div class="modal-image-placeholder">🎬 ${data.title || 'Anime'}</div>`;
+                imageContainer.innerHTML = `<div class="modal-image-placeholder">${data.title || 'Anime'}</div>`;
             }
 
             // Basic info
@@ -775,7 +829,7 @@
             card.innerHTML = `
                 ${imageHtml}
                 <div style="height: 200px; background: #e3f2fd; border-radius: 5px; display: ${imageUrl ? 'none' : 'flex'}; align-items: center; justify-content: center; margin-bottom: 10px;">
-                    <span style="color: #1976d2; font-size: 14px;">🎬 ${title.substring(0, 20)}</span>
+                    <span style="color: #1976d2; font-size: 14px;">${title.substring(0, 20)}</span>
                 </div>
                 <div class="anime-title">${title}</div>
                 <div class="anime-meta">

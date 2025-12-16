@@ -332,7 +332,7 @@
 <body>
     <div class="header">
         <div class="header-content">
-            <a href="/home" class="logo">🎌 AniFlow</a>
+            <a href="/home" class="logo">AniFlow</a>
             <div class="nav-links">
                 <a href="/home">Home</a>
                 <a href="/profile">Profile</a>
@@ -360,7 +360,7 @@
                 <li class="list-group-item" data-watchlist-id="{{ watchlist.watchlistId }}">
                     <div class="watchlist-header">
                         <h2>
-                            <button class="toggle-btn" onclick="toggleWatchlist(event, '{{ watchlist.watchlistId }}')"><span id="toggle-icon-{{ watchlist.watchlistId }}">▼</span></button>
+                            <button class="toggle-btn" onclick="toggleWatchlist(event, '{{ watchlist.watchlistId }}')"><span id="toggle-icon-{{ watchlist.watchlistId }}"></span></button>
                             {{ watchlist.name }}
                         </h2>
                         <button class="btn btn-danger btn-sm delete-watchlist">Delete Watchlist</button>
@@ -474,9 +474,9 @@
                 
                 if (data.image) {
                     imageContainer.innerHTML = `<img src="${data.image}" alt="${data.title || 'Anime'}" class="modal-image" onerror="this.style.display='none';">
-                                              <div class="modal-image-placeholder" style="display: none;">🎬 ${data.title || 'Anime'}</div>`;
+                                              <div class="modal-image-placeholder" style="display: none;">${data.title || 'Anime'}</div>`;
                 } else {
-                    imageContainer.innerHTML = `<div class="modal-image-placeholder">🎬 ${data.title || 'Anime'}</div>`;
+                    imageContainer.innerHTML = `<div class="modal-image-placeholder">${data.title || 'Anime'}</div>`;
                 }
                 
                 // Set basic info
@@ -539,9 +539,9 @@
                 const imageContainer = document.getElementById('modalImageContainer');
                 if (imageUrl) {
                     imageContainer.innerHTML = `<img src="${imageUrl}" alt="${anime.title}" class="modal-image" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                                              <div class="modal-image-placeholder" style="display: none;">🎬 ${anime.title}</div>`;
+                                              <div class="modal-image-placeholder" style="display: none;">${anime.title}</div>`;
                 } else {
-                    imageContainer.innerHTML = `<div class="modal-image-placeholder">🎬 ${anime.title}</div>`;
+                    imageContainer.innerHTML = `<div class="modal-image-placeholder">${anime.title}</div>`;
                 }
                 
                 // Set basic info
@@ -667,7 +667,7 @@
                     body: JSON.stringify({ anime_id: watchlistSelectedAnimeId, score: parseInt(score) })
                 }).then(response => {
                     if (response.ok) {
-                        alert('Rating submitted! 🎉');
+                        alert('Rating submitted!');
                         closeAnimeModal();
                     } else {
                         alert('Failed to submit rating');
@@ -698,12 +698,12 @@
             if (isHidden) {
                 itemsEl.style.display = '';
                 if (addForm) addForm.style.display = '';
-                if (icon) icon.textContent = '▼';
+                if (icon) icon.textContent = '';
                 localStorage.setItem(key, 'open');
             } else {
                 itemsEl.style.display = 'none';
                 if (addForm) addForm.style.display = 'none';
-                if (icon) icon.textContent = '▲';
+                if (icon) icon.textContent = '';
                 localStorage.setItem(key, 'closed');
             }
         }
@@ -720,9 +720,9 @@
                 if (state === 'closed') {
                     if (itemsEl) itemsEl.style.display = 'none';
                     if (addForm) addForm.style.display = 'none';
-                    if (icon) icon.textContent = '▲';
+                    if (icon) icon.textContent = '';
                 } else {
-                    if (icon) icon.textContent = '▼';
+                    if (icon) icon.textContent = '';
                 }
             });
         });

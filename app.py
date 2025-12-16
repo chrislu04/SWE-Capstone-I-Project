@@ -308,9 +308,11 @@ def home_feed():
     
     # Fetch recent ratings for the user
     recent_ratings = execute_query("""
-        SELECT rs.score, ac."animeId", ac.title, ac."imageUrl"
+        SELECT rs.score, ac."animeId", ac.title, ac."imageUrl", ac."releaseYear", 
+               ac.type, ac.episodes, ag.genres
         FROM "ratingSnapshots" rs
         JOIN "animeCatalog" ac ON rs."animeId" = ac."animeId"
+        LEFT JOIN "animeGenres" ag ON ac."animeId" = ag."animeId"
         WHERE rs."userId" = :user_id
         ORDER BY rs."createTime" DESC
         LIMIT 10
@@ -609,6 +611,33 @@ def get_recommendations():
     )
     
     return jsonify(recommendations or {"recommendations": []})
+
+@app.route('/api/recommendations/refresh', methods=['POST'])
+def refresh_recommendations():
+    """Clear cache and recompute personalized recommendations"""
+    if 'user_id' not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    user_id = session['user_id']
+    
+    try:
+        # Delete cached recommendations
+        execute_query(
+            'DELETE FROM "recommendationCache" WHERE "userId" = :user_id',
+            {"user_id": user_id}
+        )
+        
+        # Force recompute by calling the service with limit=60 to prefill cache
+        personalized_anime = recommendation_service.get_personalized_recommendations(user_id, limit=60)
+        
+        return jsonify({
+            "status": "success",
+            "message": "Recommendations refreshed",
+            "count": len(personalized_anime) if personalized_anime else 0
+        })
+    except Exception as e:
+        print(f"Error refreshing recommendations: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/api/anime/<anime_id>/flag', methods=['POST'])
 def flag_anime_route(anime_id):
